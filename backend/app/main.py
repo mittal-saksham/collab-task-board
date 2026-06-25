@@ -8,6 +8,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -26,6 +27,16 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Collab Task Board API", lifespan=lifespan)
+
+# Allow the Vite dev server (different origin) to call this API from the browser.
+# Browsers block cross-origin requests unless the server opts in via CORS headers.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Attach feature routers. Each is a self-contained group of related endpoints.
 app.include_router(auth.router)     # /auth/signup, /auth/login, /auth/me

@@ -1,0 +1,22 @@
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { ProtectedRoute } from './auth/ProtectedRoute'
+import { LoginPage } from './pages/LoginPage'
+import { SignupPage } from './pages/SignupPage'
+import { BoardsPage } from './pages/BoardsPage'
+
+// The route table. Anything inside <ProtectedRoute> requires being logged in.
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route path="/boards" element={<BoardsPage />} />
+      </Route>
+
+      {/* Anything else -> send to /boards (which redirects to /login if needed). */}
+      <Route path="*" element={<Navigate to="/boards" replace />} />
+    </Routes>
+  )
+}

@@ -20,7 +20,7 @@ updates, and a layered API.
 | Drag-and-drop positioning (fractional, persisted) | ✅ |
 | Real-time sync (WebSockets) | ✅ |
 | Membership / invites | ✅ |
-| React + TypeScript frontend | ⏳ |
+| React + TypeScript frontend | 🟡 auth + routing done |
 
 ---
 
@@ -53,6 +53,17 @@ Now open **http://127.0.0.1:8000/docs** — try `/auth/signup`, then click
 > 5432) to avoid a clash with another local Postgres. See
 > [`docs/CONCEPTS.md`](docs/CONCEPTS.md#localhost-binding-precedence-the-bug-we-hit).
 
+### Frontend (in a second terminal)
+
+```bash
+cd frontend
+npm install      # first time only
+npm run dev      # http://localhost:5173
+```
+
+Sign up, and you're in. (The frontend expects the API at `http://localhost:8000`;
+override with `VITE_API_URL` if needed.)
+
 ---
 
 ## API (so far)
@@ -82,8 +93,7 @@ Written to be read cold and understood — start here:
 |-----|---------------|
 | [`docs/HLD.md`](docs/HLD.md) | **High-level design** — architecture, components, tech rationale, flows |
 | [`docs/LLD.md`](docs/LLD.md) | **Low-level design** — modules, schema, API contracts, sequence diagrams, algorithms |
-| [`docs/01-data-model.md`](docs/01-data-model.md) | Entities, relationships, fractional ordering, migrations |
-| [`docs/02-auth.md`](docs/02-auth.md) | Signup/login/JWT flow, bcrypt, OAuth2, protecting routes |
+| [`docs/01`–`06`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend |
 | [`docs/CONCEPTS.md`](docs/CONCEPTS.md) | Plain-English glossary of every concept used (grows each batch) |
 
 ---
