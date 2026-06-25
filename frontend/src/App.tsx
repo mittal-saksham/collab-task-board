@@ -3,6 +3,7 @@ import { ProtectedRoute } from './auth/ProtectedRoute'
 import { LoginPage } from './pages/LoginPage'
 import { SignupPage } from './pages/SignupPage'
 import { BoardsPage } from './pages/BoardsPage'
+import { BoardPage } from './pages/BoardPage'
 
 // The route table. Anything inside <ProtectedRoute> requires being logged in.
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/boards" element={<BoardsPage />} />
+        <Route path="/boards/:boardId" element={<BoardPage />} />
       </Route>
 
       {/* Anything else -> send to /boards (which redirects to /login if needed). */}

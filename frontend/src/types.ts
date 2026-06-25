@@ -38,3 +38,9 @@ export interface List {
 export interface BoardDetail extends Board {
   lists: List[];
 }
+
+export interface Member {
+  user_id: number;
+  email: string;
+  role: string;
+}

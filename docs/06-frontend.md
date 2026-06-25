@@ -4,8 +4,8 @@ The web client that consumes the API and the live WebSocket feed. This doc cover
 the overall setup and the **auth foundation** (sub-batch 5a); board UI and
 drag-and-drop are added in the following sub-batches.
 
-> Status: 🟡 in progress. ✅ scaffold + auth + routing · ⏳ board list, board
-> view, drag-and-drop, live updates.
+> Status: 🟡 in progress. ✅ scaffold + auth + routing + board list/view (CRUD) ·
+> ⏳ drag-and-drop, live updates, members UI.
 
 ---
 
@@ -97,6 +97,23 @@ npm install      # first time
 npm run dev      # http://localhost:5173
 ```
 
-➡️ Next: the **board list + board view** (TanStack Query reads `/boards` and
-`/boards/{id}`), then **@dnd-kit** drag-and-drop wired to `PATCH /cards/{id}/move`,
-then the **WebSocket** feed applying live deltas to the Query cache.
+## Board UI & TanStack Query (5b)
+
+- **`hooks.ts`** wraps the API in Query hooks. `useBoards()`/`useBoard(id)` cache
+  data by a **queryKey** (`['board', 5]`). Mutations (`useBoardMutations`) call the
+  REST endpoints and then `invalidateQueries` so the affected query **refetches**
+  and the UI updates — no manual state juggling.
+
+  > 🧠 **TanStack Query in one line:** `useQuery` reads+caches; `useMutation`
+  > writes; invalidating a queryKey triggers a refetch. The cache is the single
+  > source of truth the UI renders from.
+
+- **Pages/components:** `BoardsPage` (list + create boards) → links to
+  `BoardPage` (`/boards/:boardId`), which renders `Column`s of `CardItem`s with
+  inline "add list / add card" forms. `AppHeader` shows the user + logout.
+
+Verified in a browser: create board → open → add list → add card all render via
+Query refetch.
+
+➡️ Next: **@dnd-kit** drag-and-drop wired to `PATCH /cards/{id}/move`, then the
+**WebSocket** feed applying live deltas to the Query cache, then the members UI.

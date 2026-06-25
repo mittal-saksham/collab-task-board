@@ -1,0 +1,17 @@
+- generic [ref=e30]:
+  - banner [ref=e31]:
+    - generic [ref=e32]:
+      - link "Task Board" [ref=e33] [cursor=pointer]:
+        - /url: /boards
+      - generic [ref=e34]: / Sprint Board
+    - generic [ref=e35]:
+      - generic [ref=e36]: demo_ui@example.com
+      - button "Log out" [ref=e37]
+  - main [ref=e38]:
+    - generic [ref=e39]:
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - heading "To Do" [level=3] [ref=e44]
+          - button "×" [ref=e45]
+        - textbox "+ Add a card" [ref=e47]
+      - textbox "+ Add a list" [active] [ref=e41]
