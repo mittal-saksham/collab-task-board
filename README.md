@@ -26,7 +26,7 @@ updates, and a layered API.
 | Comments + per-board activity log (G2) | ✅ |
 | Issue types + story points + display-only WIP limits (G3) | ✅ |
 | Search / filter bar — text, assignee, label, priority, type (G4) | ✅ |
-| Automated tests (pytest + vitest) + CI (GitHub Actions) | ✅ core (positioning math + filter/time helpers); DB-integration tests pending |
+| Automated tests (pytest + vitest) + CI (GitHub Actions) | ✅ ordering math, auth + board access-control (DB-backed), filter/time helpers — 27 backend + 20 frontend |
 
 ---
 

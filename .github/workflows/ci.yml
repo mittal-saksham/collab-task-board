@@ -13,6 +13,30 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # Postgres for the DB-backed API tests. conftest.py creates a `taskapp_test`
+    # database on it (the POSTGRES_USER is a superuser, so it can CREATE DATABASE).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: taskapp
+          POSTGRES_PASSWORD: taskapp
+          POSTGRES_DB: taskapp
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # Settings reads these (no .env file in CI). Point at the service above.
+      POSTGRES_USER: taskapp
+      POSTGRES_PASSWORD: taskapp
+      POSTGRES_DB: taskapp
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+      SECRET_KEY: ci-test-secret-not-used-anywhere
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -21,9 +45,6 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
-      # The current suite (fractional-ordering math) is pure — it needs no
-      # database or secrets. When DB-backed API tests are added, give this job a
-      # `services: postgres:` block and a DATABASE_URL_OVERRIDE env var.
       - run: python -m pytest -q
 
   frontend:

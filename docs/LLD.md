@@ -287,24 +287,34 @@ Rebalance = `O(k)` for one list of `k` items, and only when precision is exhaust
 
 ---
 
-## 10. Testing & CI 🟡 (core done; DB-integration pending)
+## 10. Testing & CI ✅
 
-**Done so far** — the pure-logic core plus CI:
-- **Backend `pytest`** (`backend/tests/`): the fractional-ordering helpers
-  (`position_at_end` / `position_between` — append, front, back, midpoint, and the
-  repeated-insert ordering invariant). Pure math, so these need no DB or secrets.
-  Run: `pip install -r backend/requirements-dev.txt && cd backend && pytest`.
-- **Frontend `vitest`** (`src/lib/*.test.ts`): the filter predicate (`cardMatches`,
-  `filtersActive`) and the time helpers (`timeAgo`, `initials`). Run: `npm test`.
-- **CI** (`.github/workflows/ci.yml`): on every push/PR, a backend job runs pytest
-  and a frontend job runs `npm run build` (type-check) + `npm test`. 29 tests green.
+**Backend `pytest`** (`backend/tests/`) — 27 tests:
+- `test_ordering.py` — the fractional-ordering helpers (append, front, back,
+  midpoint, repeated-insert ordering invariant). Pure math, no DB.
+- `test_auth.py` — signup (incl. 409 duplicate, 422 validation), login (200 +
+  token, 401 wrong/unknown), `/me` (401 without/garbage token, 200 with).
+- `test_access.py` — board access control: members view (404 to non-members so we
+  don't reveal existence), owner-only edit/delete (403 to non-owner members),
+  owner-only invites, and "list boards returns only yours".
 
-**Still pending — DB-backed API tests.** These are the bigger lift:
-- The CRUD layer calls `db.commit()`, so the simple transaction-rollback isolation
-  doesn't hold — use **per-test `create_all`/`drop_all`** against a throwaway test
-  database instead.
-- Override the `get_db` dependency to inject the test session (this is *why* we use
-  dependency injection) and drive routes with FastAPI's `TestClient`.
-- Target coverage: auth (signup / login / expired token), board access control
-  (the 404-vs-403 logic), and the comment/label permission paths.
-- CI for these needs a `services: postgres:` block + a `DATABASE_URL_OVERRIDE`.
+**The isolation trick** (`conftest.py`): because the CRUD layer calls `db.commit()`,
+a wrap-and-rollback transaction can't isolate tests. Instead we create the schema
+once on a throwaway **`taskapp_test`** database and `TRUNCATE ... RESTART IDENTITY
+CASCADE` after each test. The `client` fixture overrides the `get_db` dependency to
+point at that DB (this is *why* the app uses dependency injection) and drives routes
+with FastAPI's `TestClient`. Heavy imports live inside fixtures so the pure
+`test_ordering.py` still runs with no DB or secrets.
+> Gotcha worth remembering: build the test engine from the SQLAlchemy **URL object**,
+> not `str(url)` — stringifying a URL masks the password as `***` and breaks auth.
+
+**Frontend `vitest`** (`src/lib/*.test.ts`) — 20 tests: the filter predicate
+(`cardMatches`, `filtersActive`) and the time helpers (`timeAgo` with a faked clock,
+`initials`).
+
+**CI** (`.github/workflows/ci.yml`): on every push/PR — a backend job (Postgres
+service + env vars; runs pytest) and a frontend job (`npm run build` type-check +
+`npm test`). 47 tests total.
+
+Run locally: `pip install -r backend/requirements-dev.txt && (cd backend && pytest)`
+and `(cd frontend && npm test)`.

@@ -96,6 +96,11 @@ SDE reviewer might probe.
     - [Client-side filtering](#client-side-filtering-filter-data-you-already-have)
     - [Pure predicate + derived view](#pure-predicate--derived-view-dont-mutate-derive)
     - [Separating what to show from what to count](#separating-what-to-show-from-what-to-count)
+16. [Testing & CI](#16-testing--ci)
+    - [Dependency injection as a test seam](#dependency-injection-as-a-test-seam)
+    - [Test isolation when your code commits](#test-isolation-when-your-code-commits)
+    - [Fixtures & a factory fixture](#fixtures--a-factory-fixture)
+    - [CI service containers](#ci-service-containers)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -1139,5 +1144,54 @@ hiding a card with a search filter never changes the column's WIP count.
 
 ---
 
-*Last updated: after G4 (client-side search/filter bar) — all four Jira-style
-groups complete. New concepts are appended here as we build.*
+## 16. Testing & CI
+
+Walkthrough: `docs/LLD.md §10`. Concepts the test suite introduces:
+
+### Dependency injection as a test seam
+
+**Plain English:** Because routes get their DB session via `Depends(get_db)`
+instead of importing it directly, a test can **swap** that dependency for one
+pointing at a test database — without changing any app code.
+
+**In our code:** `app.dependency_overrides[get_db] = override_get_db` in
+`tests/conftest.py`. This is the concrete payoff of using DI everywhere.
+
+---
+
+### Test isolation when your code commits
+
+**Plain English:** A common way to isolate DB tests is "wrap each test in a
+transaction and roll it back." But if the code under test calls `commit()`, that
+ends the transaction — so the rollback trick fails.
+
+**In our code:** the CRUD layer commits, so instead we create the schema once on a
+throwaway `taskapp_test` DB and `TRUNCATE ... RESTART IDENTITY CASCADE` after each
+test. Slower than rollback, but robust and simple.
+
+---
+
+### Fixtures & a factory fixture
+
+**Plain English:** A pytest *fixture* is reusable setup a test asks for by naming
+it as a parameter. A fixture can also **return a function** (a factory) so each
+test can build what it needs with arguments.
+
+**In our code:** `client` (a configured `TestClient`) and `auth` — a factory that
+registers + logs in a user and returns the auth headers: `headers = auth("a@x.com")`.
+
+---
+
+### CI service containers
+
+**Plain English:** A CI job can spin up a real dependency (here, Postgres) in a
+container for the duration of the job, so integration tests run against the real
+thing — not a mock.
+
+**In our code:** `.github/workflows/ci.yml` gives the backend job a
+`services: postgres:` block and env vars; `conftest.py` creates `taskapp_test` on it.
+
+---
+
+*Last updated: after the test suite + CI (pytest DB-backed API tests, vitest unit
+tests, GitHub Actions). New concepts are appended here as we build.*
