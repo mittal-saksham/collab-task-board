@@ -142,6 +142,12 @@ export function useBoardMutations(boardId: number) {
         api.moveList(v.id, v.afterId),
       onSuccess: invalidate,
     }),
+    // Edit a list's title / WIP limit.
+    updateList: useMutation({
+      mutationFn: (v: { id: number; patch: api.ListPatch }) =>
+        api.updateList(v.id, v.patch),
+      onSuccess: invalidate,
+    }),
     createCard: useMutation({
       mutationFn: (v: { listId: number; title: string }) =>
         api.createCard(v.listId, v.title),

@@ -1,9 +1,9 @@
 """List model — a column on a board (e.g. "To Do", "In Progress", "Done")."""
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import DateTime, Float, ForeignKey, String, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,6 +26,12 @@ class List(Base):
     # averaging their positions — no need to renumber siblings. (See docs for
     # the rebalance fallback when float precision runs out.)
     position: Mapped[float] = mapped_column(Float)
+
+    # Work-in-progress limit: the soft cap on how many cards "should" be in this
+    # column. NULL = no limit. It's DISPLAY-ONLY — the UI shows count/limit and
+    # flags when over, but the backend never blocks a create/move (so the existing
+    # drag flow is unchanged).
+    wip_limit: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

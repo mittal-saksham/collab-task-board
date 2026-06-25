@@ -192,6 +192,9 @@ export function BoardPage() {
                   onDeleteCard={(cardId) => m.deleteCard.mutate(cardId)}
                   onDeleteList={() => m.deleteList.mutate(list.id)}
                   onOpenCard={(cardId) => setOpenCardId(cardId)}
+                  onSetWipLimit={(limit) =>
+                    m.updateList.mutate({ id: list.id, patch: { wip_limit: limit } })
+                  }
                 />
               ))}
 

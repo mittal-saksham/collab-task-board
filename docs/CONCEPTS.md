@@ -88,6 +88,10 @@ SDE reviewer might probe.
     - [Cross-cutting concern (one helper)](#cross-cutting-concern-one-helper-called-from-many-routes)
     - [TanStack Query: read mutation variables in onSuccess](#tanstack-query-read-mutation-variables-in-onsuccess)
     - [Prefix (partial) query invalidation](#prefix-partial-query-invalidation)
+14. [Issue Types + Story Points + WIP Limits (G3)](#14-issue-types--story-points--wip-limits-g3)
+    - [Display-only vs enforced constraint](#display-only-vs-enforced-constraint-a-product-decision-in-code)
+    - [Widening a required field to optional](#widening-a-required-field-to-optional-so-updates-compose)
+    - [Controlled vs uncontrolled inputs (React)](#controlled-vs-uncontrolled-inputs-react)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -1043,5 +1047,54 @@ card's thread is actually mounted, so the refetch cost is one request.
 
 ---
 
-*Last updated: after G2 (comments + per-board activity log; modal restyled to a
-content+sidebar layout). New concepts are appended here as we build.*
+## 14. Issue Types + Story Points + WIP Limits (G3)
+
+Full walkthrough: `docs/10-issue-types-points-wip.md`. G3 mostly *reused* earlier
+patterns (`server_default` backfill from §12, `exclude_unset` null-to-clear from
+§12). The genuinely new ideas:
+
+### Display-only vs enforced constraint (a product decision in code)
+
+**Plain English:** A rule like "max 5 cards per column" can either *block* the
+action (enforce) or just *show a warning* (display-only). Which you pick is a
+product/UX decision, not just a technical one.
+
+**In our code:** `lists.wip_limit` is **display-only** — the UI shows `count /
+limit` and turns red when over, but no backend route blocks a move. We chose this
+because enforcing would change the existing drag flow (an over-limit drop would
+`400` and snap back, reading as "the drag broke"). Stored + returned, never
+checked server-side.
+
+**Interview angle:** *"Why doesn't the WIP limit stop me?"* → a deliberate choice
+to keep the shipped drag-and-drop behavior stable; enforcement is a one-line count
+check away if wanted.
+
+---
+
+### Widening a required field to optional (so updates compose)
+
+**Plain English:** If a PATCH schema *requires* field A, you can't update field B
+alone without also sending A. Making both optional (+ `exclude_unset`) lets each be
+set independently.
+
+**In our code:** `ListUpdate.title` went from required to optional when we added
+`wip_limit`, and the route switched to `model_dump(exclude_unset=True)`. Now a
+rename doesn't touch the limit, and setting the limit doesn't require a title.
+
+---
+
+### Controlled vs uncontrolled inputs (React)
+
+**Plain English:** A **controlled** input's value comes from React state
+(`value={x}` + `onChange`). An **uncontrolled** input manages its own value in the
+DOM; React only reads it when needed (`defaultValue={x}`, read on an event).
+
+**In our code:** the modal's selects are controlled (driven by the card). The
+column's WIP-limit editor is uncontrolled (`defaultValue`, value read in
+`commitWip` on blur/Enter) — simpler for a transient "type a number and commit"
+control that doesn't need to re-render on each keystroke.
+
+---
+
+*Last updated: after G3 (issue types + story points + display-only WIP limits).
+New concepts are appended here as we build.*

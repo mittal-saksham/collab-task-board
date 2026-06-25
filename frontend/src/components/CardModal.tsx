@@ -3,7 +3,7 @@ import type { Card } from '../types'
 import type { CardPatch } from '../lib/boards'
 import { useBoardMutations, useLabels, useMembers } from '../hooks'
 import { CommentThread } from './CommentThread'
-import { LABEL_STYLES } from './CardBadges'
+import { ISSUE_TYPES, LABEL_STYLES } from './CardBadges'
 
 // The five priority levels the backend accepts (schemas/card.py Priority).
 const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest']
@@ -120,6 +120,20 @@ export function CardModal({
 
           {/* --- Sidebar: properties --- */}
           <aside className="space-y-4 sm:w-56 sm:flex-shrink-0">
+            <Field label="Type">
+              <select
+                value={card.issue_type}
+                onChange={(e) => patch({ issue_type: e.target.value })}
+                className={`${selectClass} capitalize`}
+              >
+                {ISSUE_TYPES.map((t) => (
+                  <option key={t} value={t} className="capitalize">
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
             <Field label="Assignee">
               <select
                 value={card.assignee?.id ?? ''}
@@ -153,6 +167,24 @@ export function CardModal({
                   </option>
                 ))}
               </select>
+            </Field>
+
+            <Field label="Story points">
+              <input
+                type="number"
+                min={0}
+                max={999}
+                value={card.story_points ?? ''}
+                onChange={(e) =>
+                  // empty input → null (clear the estimate)
+                  patch({
+                    story_points:
+                      e.target.value === '' ? null : Number(e.target.value),
+                  })
+                }
+                placeholder="—"
+                className={selectClass}
+              />
             </Field>
 
             <Field label="Due date">

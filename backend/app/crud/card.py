@@ -37,7 +37,15 @@ def create_card(
 
 # Only these fields can be set through update_card (whitelist — never trust
 # arbitrary keys from the request).
-_UPDATABLE_FIELDS = ("title", "description", "priority", "due_date", "assignee_id")
+_UPDATABLE_FIELDS = (
+    "title",
+    "description",
+    "priority",
+    "due_date",
+    "assignee_id",
+    "issue_type",
+    "story_points",
+)
 
 
 def update_card(db: Session, card: Card, fields: dict) -> Card:

@@ -40,6 +40,8 @@ export interface Card {
   // priority='medium', and assignee/due_date are null + labels=[] by default. ---
   priority: string;          // one of: highest | high | medium | low | lowest
   due_date: string | null;   // ISO date "YYYY-MM-DD", or null
+  issue_type: string;        // one of: task | bug | story (G3)
+  story_points: number | null; // optional effort estimate (G3)
   assignee: UserBrief | null;
   labels: Label[];
   created_at: string;
@@ -51,6 +53,7 @@ export interface List {
   board_id: number;
   title: string;
   position: number;
+  wip_limit: number | null; // soft cap on card count; null = no limit (G3, display-only)
   created_at: string;
   cards: Card[];
 }

@@ -62,9 +62,20 @@ export interface CardPatch {
   priority?: string
   due_date?: string | null
   assignee_id?: number | null
+  issue_type?: string
+  story_points?: number | null
 }
 export const updateCard = (id: number, patch: CardPatch) =>
   apiFetch<Card>(`/cards/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+
+// Edit a list's title and/or WIP limit. Same null-to-clear semantics as cards:
+// `wip_limit: null` removes the limit; omitting a key leaves it unchanged.
+export interface ListPatch {
+  title?: string
+  wip_limit?: number | null
+}
+export const updateList = (id: number, patch: ListPatch) =>
+  apiFetch<List>(`/lists/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
 
 // --- Labels (board-scoped tags) ---
 export const getLabels = (boardId: number) =>

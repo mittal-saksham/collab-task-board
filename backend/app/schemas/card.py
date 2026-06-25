@@ -10,6 +10,8 @@ from app.schemas.user import UserBrief
 
 # The five Jira priority levels.
 Priority = Literal["highest", "high", "medium", "low", "lowest"]
+# Issue types (G3).
+IssueType = Literal["task", "bug", "story"]
 
 
 class CardCreate(BaseModel):
@@ -27,6 +29,9 @@ class CardUpdate(BaseModel):
     priority: Optional[Priority] = None
     due_date: Optional[date] = None
     assignee_id: Optional[int] = None
+    issue_type: Optional[IssueType] = None
+    # ge=0 → no negative estimates. Present as null clears it (exclude_unset).
+    story_points: Optional[int] = Field(default=None, ge=0, le=999)
 
 
 class CardMove(BaseModel):
@@ -42,6 +47,8 @@ class CardRead(BaseModel):
     position: float
     priority: str
     due_date: Optional[date]
+    issue_type: str
+    story_points: Optional[int]
     assignee: Optional[UserBrief]  # built from card.assignee (a User) or null
     labels: list[LabelRead] = []
     created_at: datetime

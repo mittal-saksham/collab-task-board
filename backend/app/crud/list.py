@@ -28,8 +28,17 @@ def create_list(db: Session, *, board_id: int, title: str) -> List:
     return new_list
 
 
-def update_list(db: Session, lst: List, *, title: str) -> List:
-    lst.title = title
+# Only these fields can be set through update_list (whitelist — never trust
+# arbitrary keys from the request).
+_UPDATABLE_FIELDS = ("title", "wip_limit")
+
+
+def update_list(db: Session, lst: List, fields: dict) -> List:
+    """Apply only the provided fields (the route passes model_dump(exclude_unset=True),
+    so a present `wip_limit: None` clears the limit; an absent key is left alone)."""
+    for key in _UPDATABLE_FIELDS:
+        if key in fields:
+            setattr(lst, key, fields[key])
     db.commit()
     db.refresh(lst)
     return lst

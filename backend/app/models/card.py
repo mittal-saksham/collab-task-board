@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -41,6 +41,14 @@ class Card(Base):
         String(20), nullable=False, server_default="medium"
     )
     due_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
+
+    # --- G3 Jira fields ---
+    # issue_type backfills 'task' on existing rows (same server_default trick).
+    issue_type: Mapped[str] = mapped_column(
+        String(20), nullable=False, server_default="task"
+    )
+    # story_points: an optional estimate of effort (Fibonacci-ish in practice).
+    story_points: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

@@ -27,6 +27,15 @@ const PRIORITY_DOT: Record<string, string> = {
   lowest: 'bg-slate-300',
 }
 
+// Issue type → a small colored glyph badge (G3). Exported so the modal's select
+// can label the options consistently.
+export const ISSUE_TYPES = ['task', 'bug', 'story'] as const
+export const ISSUE_TYPE: Record<string, { label: string; cls: string; glyph: string }> = {
+  task: { label: 'Task', cls: 'bg-sky-100 text-sky-700', glyph: '✓' },
+  bug: { label: 'Bug', cls: 'bg-red-100 text-red-700', glyph: '●' },
+  story: { label: 'Story', cls: 'bg-emerald-100 text-emerald-700', glyph: '◆' },
+}
+
 // First two letters of the email, e.g. "saksham@…" → "SA". A cheap stand-in for
 // an avatar image.
 function initials(email: string): string {
@@ -51,6 +60,7 @@ function formatDue(due: string): { label: string; overdue: boolean } {
 // the right with ml-auto).
 export function CardBadges({ card }: { card: Card }) {
   const due = card.due_date ? formatDue(card.due_date) : null
+  const it = ISSUE_TYPE[card.issue_type] ?? ISSUE_TYPE.task
 
   return (
     <>
@@ -70,6 +80,14 @@ export function CardBadges({ card }: { card: Card }) {
       )}
 
       <div className="mt-1.5 flex items-center gap-2">
+        {/* issue type */}
+        <span
+          title={it.label}
+          className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded text-[9px] font-bold ${it.cls}`}
+        >
+          {it.glyph}
+        </span>
+        {/* priority */}
         <span
           title={`Priority: ${card.priority}`}
           className={`h-2 w-2 flex-shrink-0 rounded-full ${
@@ -85,14 +103,25 @@ export function CardBadges({ card }: { card: Card }) {
             {due.label}
           </span>
         )}
-        {card.assignee && (
-          <span
-            title={card.assignee.email}
-            className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[9px] font-semibold text-white"
-          >
-            {initials(card.assignee.email)}
-          </span>
-        )}
+        {/* story points + assignee, grouped on the right */}
+        <span className="ml-auto flex items-center gap-1.5">
+          {card.story_points != null && (
+            <span
+              title="Story points"
+              className="flex h-4 min-w-4 items-center justify-center rounded-full bg-slate-200 px-1 text-[10px] font-semibold text-slate-600"
+            >
+              {card.story_points}
+            </span>
+          )}
+          {card.assignee && (
+            <span
+              title={card.assignee.email}
+              className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500 text-[9px] font-semibold text-white"
+            >
+              {initials(card.assignee.email)}
+            </span>
+          )}
+        </span>
       </div>
     </>
   )

@@ -45,7 +45,8 @@ def update_list(
     list_id: int, payload: ListUpdate, current_user: CurrentUser, db: DbSession
 ):
     lst = access.require_list_access(db, list_id, current_user.id)
-    lst = list_crud.update_list(db, lst, title=payload.title)
+    fields = payload.model_dump(exclude_unset=True)  # only keys actually sent
+    lst = list_crud.update_list(db, lst, fields)
     emit(lst.board_id, "list.updated", _payload(lst))
     return lst
 

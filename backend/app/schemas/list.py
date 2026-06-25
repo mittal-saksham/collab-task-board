@@ -13,7 +13,12 @@ class ListCreate(BaseModel):
 
 
 class ListUpdate(BaseModel):
-    title: str = Field(min_length=1, max_length=255)
+    """Partial update (the route applies exclude_unset): send only what changes.
+    Both fields optional so you can rename OR set the WIP limit independently.
+    `wip_limit: null` clears the limit; `ge=1` rejects nonsensical values."""
+
+    title: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    wip_limit: Optional[int] = Field(default=None, ge=1, le=999)
 
 
 class ListMove(BaseModel):
@@ -29,6 +34,7 @@ class ListRead(BaseModel):
     board_id: int
     title: str
     position: float
+    wip_limit: Optional[int]  # null = no limit (display-only)
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
