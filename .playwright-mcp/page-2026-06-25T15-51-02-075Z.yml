@@ -1,0 +1,44 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - link "Task Board" [ref=e6] [cursor=pointer]:
+        - /url: /boards
+      - generic [ref=e12]: / Sprint Board
+      - generic [ref=e13]:
+        - button "Members" [active] [ref=e14]
+        - generic [ref=e15]:
+          - generic [ref=e16]:
+            - heading "Members" [level=3] [ref=e17]
+            - button "×" [ref=e18]
+          - list [ref=e19]:
+            - listitem [ref=e20]:
+              - generic [ref=e21]: demo_ui@example.com
+              - generic [ref=e23]: owner
+          - generic [ref=e24]:
+            - textbox "Invite by email" [ref=e25]
+            - button "Invite" [ref=e26]
+    - generic [ref=e7]:
+      - generic [ref=e8]: demo_ui@example.com
+      - button "Log out" [ref=e9]
+  - main [ref=e10]:
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - generic [ref=e29]:
+          - heading "To Do" [level=3] [ref=e30]
+          - button "×" [ref=e31]
+        - button "LIVE from another client ×" [ref=e33]:
+          - generic [ref=e34]:
+            - paragraph [ref=e35]: LIVE from another client
+            - button "×" [ref=e36]
+        - textbox "+ Add a card" [ref=e38]
+      - generic [ref=e39]:
+        - generic [ref=e40]:
+          - heading "Doing" [level=3] [ref=e41]
+          - button "×" [ref=e42]
+        - button "Wire up drag and drop ×" [ref=e44]:
+          - generic [ref=e45]:
+            - paragraph [ref=e46]: Wire up drag and drop
+            - button "×" [ref=e47]
+        - textbox "+ Add a card" [ref=e49]
+      - textbox "+ Add a list" [ref=e51]
+    - status [ref=e52]

@@ -4,8 +4,8 @@ The web client that consumes the API and the live WebSocket feed. This doc cover
 the overall setup and the **auth foundation** (sub-batch 5a); board UI and
 drag-and-drop are added in the following sub-batches.
 
-> Status: 🟡 in progress. ✅ auth + routing + board UI + drag-and-drop + live
-> updates · ⏳ members UI.
+> Status: ✅ frontend MVP complete — auth, boards, board view, drag-and-drop,
+> live updates, members.
 
 ---
 
@@ -143,5 +143,15 @@ Verified in a browser: dragging a card `To Do → Doing` moved it and **persiste
 Verified in a browser: a card created by a **separate** API client appeared in the
 open board live, with no manual refresh.
 
-➡️ Next: the **members UI** (invite by email), then the optional **LLM board
-summarizer**.
+## Members UI (5e)
+
+- **`MembersPanel`** (a dropdown in the board header) lists members via
+  `useMembers`. The **owner** sees an invite-by-email form and remove buttons;
+  others just see the list (`isOwner = user.id === board.owner_id`).
+- Member changes also arrive live — `useBoardLiveUpdates` invalidates the
+  `['members', id]` query on WS events too.
+
+Verified in a browser: owner invited a teammate by email → appeared in the list
+(`owner` + `member`), persisted via the API.
+
+➡️ The frontend MVP is done. Next (optional stretch): the **LLM board summarizer**.

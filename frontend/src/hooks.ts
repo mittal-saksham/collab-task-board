@@ -50,11 +50,37 @@ export function useBoardLiveUpdates(boardId: number) {
 
     const ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?token=${token}`)
     ws.onmessage = () => {
+      // Refetch both the board contents and its member list on any event.
       qc.invalidateQueries({ queryKey: ['board', boardId] })
+      qc.invalidateQueries({ queryKey: ['members', boardId] })
     }
     // Close the socket when leaving the board / unmounting.
     return () => ws.close()
   }, [boardId, qc])
+}
+
+// --- Members ---
+export function useMembers(boardId: number) {
+  return useQuery({
+    queryKey: ['members', boardId],
+    queryFn: () => api.getMembers(boardId),
+  })
+}
+
+export function useAddMember(boardId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (email: string) => api.addMember(boardId, email),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['members', boardId] }),
+  })
+}
+
+export function useRemoveMember(boardId: number) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (userId: number) => api.removeMember(boardId, userId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['members', boardId] }),
+  })
 }
 
 // All the mutations that change a board's contents share one invalidation:

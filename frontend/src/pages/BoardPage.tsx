@@ -13,6 +13,7 @@ import {
 import { AppHeader } from '../components/AppHeader'
 import { Column } from '../components/Column'
 import { CardItem } from '../components/CardItem'
+import { MembersPanel } from '../components/MembersPanel'
 import { useBoard, useBoardLiveUpdates, useBoardMutations } from '../hooks'
 import type { Card, List } from '../types'
 
@@ -34,6 +35,7 @@ export function BoardPage() {
     if (board) setLists(board.lists)
   }, [board])
 
+  const [showMembers, setShowMembers] = useState(false)
   const [activeCard, setActiveCard] = useState<Card | null>(null)
   // Require a 5px drag before activating, so plain clicks (e.g. the × button) work.
   const sensors = useSensors(
@@ -109,7 +111,26 @@ export function BoardPage() {
   return (
     <div className="flex min-h-full flex-col bg-slate-50">
       <AppHeader>
-        {board && <span className="text-slate-400">/ {board.title}</span>}
+        {board && (
+          <>
+            <span className="text-slate-400">/ {board.title}</span>
+            <div className="relative">
+              <button
+                onClick={() => setShowMembers((v) => !v)}
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+              >
+                Members
+              </button>
+              {showMembers && (
+                <MembersPanel
+                  boardId={id}
+                  ownerId={board.owner_id}
+                  onClose={() => setShowMembers(false)}
+                />
+              )}
+            </div>
+          </>
+        )}
       </AppHeader>
 
       <main className="flex-1 overflow-x-auto p-4">
