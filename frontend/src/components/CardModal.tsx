@@ -169,20 +169,35 @@ export function CardModal({
             {labels.map((l) => {
               const on = attachedIds.has(l.id)
               return (
-                <button
+                // One chip = a toggle (the name) + a delete (×). Attached → solid +
+                // ring; not attached → faded (click the name to add).
+                <span
                   key={l.id}
-                  onClick={() =>
-                    on
-                      ? m.detachLabel.mutate({ cardId: card.id, labelId: l.id })
-                      : m.attachLabel.mutate({ cardId: card.id, labelId: l.id })
-                  }
-                  // Attached → solid + ring; not attached → faded (click to add).
-                  className={`rounded px-2 py-0.5 text-xs font-medium transition ${
+                  className={`inline-flex items-center rounded text-xs font-medium transition ${
                     LABEL_STYLES[l.color] ?? LABEL_STYLES.slate
                   } ${on ? 'ring-2 ring-slate-400' : 'opacity-40 hover:opacity-100'}`}
                 >
-                  {l.name}
-                </button>
+                  {/* Click the name to toggle this label on/off THIS card. */}
+                  <button
+                    onClick={() =>
+                      on
+                        ? m.detachLabel.mutate({ cardId: card.id, labelId: l.id })
+                        : m.attachLabel.mutate({ cardId: card.id, labelId: l.id })
+                    }
+                    title={on ? 'Remove from this card' : 'Add to this card'}
+                    className="py-0.5 pl-2 pr-1"
+                  >
+                    {l.name}
+                  </button>
+                  {/* Delete the label from the WHOLE board (cascades off every card). */}
+                  <button
+                    onClick={() => m.deleteLabel.mutate(l.id)}
+                    title="Delete label from board"
+                    className="py-0.5 pl-0.5 pr-1.5 opacity-60 hover:opacity-100"
+                  >
+                    ×
+                  </button>
+                </span>
               )
             })}
           </div>
