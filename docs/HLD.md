@@ -66,7 +66,7 @@ flowchart TB
     end
 
     subgraph BE["Backend — FastAPI"]
-        Routers["API routers<br/>auth ✅ · boards ⏳ · lists ⏳ · cards ⏳ · membership ⏳"]
+        Routers["API routers<br/>auth ✅ · boards ✅ · lists ✅ · cards ✅ · membership ⏳"]
         Deps["Dependencies<br/>get_db ✅ · get_current_user ✅"]
         CRUD["CRUD / data-access layer ✅(users)"]
         Models["SQLAlchemy models ✅"]
@@ -145,7 +145,7 @@ The hub keeps an in-memory map of `board_id → set(active connections)`. A clie
 - **Authentication:** stateless JWT. The signed token *is* the proof; no
   server-side session store. Tradeoff: revocation-before-expiry needs a blocklist
   (deferred). Details in [`02-auth.md`](02-auth.md).
-- **Authorization (⏳):** board access is checked via the `memberships` table;
+- **Authorization (✅):** board access is checked via the `memberships` table;
   `Board.owner_id` is the authority for owner-only actions (delete board, invite).
 - **Ordering at scale:** fractional float positions → moves are a single-row
   update; periodic per-list rebalance. Details in
@@ -211,6 +211,7 @@ because the MVP implements them:
 ✅ Backend skeleton + Postgres + health check
 ✅ Data model (5 tables) + Alembic migration
 ✅ Auth (signup, login, JWT, protected route)
-🟡 Boards (next)
-⏳ Lists → Cards → drag/positioning → WebSockets → membership → frontend
+✅ Boards · Lists · Cards CRUD + fractional positioning (drag-and-drop persistence)
+🟡 Real-time sync via WebSockets (next)
+⏳ Membership / invites → React + TypeScript frontend
 ⏳ Stretch: optimistic UI, activity log, LLM summarize, live deployment

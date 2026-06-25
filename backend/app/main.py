@@ -8,13 +8,16 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.api import auth
+from app.api import auth, boards, cards, lists
 from app.db.session import get_db
 
 app = FastAPI(title="Collab Task Board API")
 
-# Attach the auth routes (/auth/signup, /auth/login, /auth/me).
-app.include_router(auth.router)
+# Attach feature routers. Each is a self-contained group of related endpoints.
+app.include_router(auth.router)     # /auth/signup, /auth/login, /auth/me
+app.include_router(boards.router)   # /boards ...
+app.include_router(lists.router)    # /boards/{id}/lists, /lists/{id} ...
+app.include_router(cards.router)    # /lists/{id}/cards, /cards/{id} ...
 
 
 @app.get("/health")

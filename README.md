@@ -16,8 +16,8 @@ updates, and a layered API.
 | Backend skeleton + Postgres + health check | ✅ |
 | Data model (users, boards, memberships, lists, cards) + migration | ✅ |
 | Auth — signup, login, JWT, protected routes | ✅ |
-| Boards / Lists / Cards CRUD | ⏳ |
-| Drag-and-drop positioning | ⏳ |
+| Boards / Lists / Cards CRUD | ✅ |
+| Drag-and-drop positioning (fractional, persisted) | ✅ |
 | Real-time sync (WebSockets) | ⏳ |
 | Membership / invites | ⏳ |
 | React + TypeScript frontend | ⏳ |
@@ -62,7 +62,15 @@ Now open **http://127.0.0.1:8000/docs** — try `/auth/signup`, then click
 | `POST` | `/auth/signup` | – | Create an account |
 | `POST` | `/auth/login` | – | Get a JWT (form: `username`=email, `password`) |
 | `GET`  | `/auth/me` | Bearer | The logged-in user |
+| `POST` | `/boards` | Bearer | Create a board |
+| `GET`  | `/boards` | Bearer | List boards you can access |
+| `GET`  | `/boards/{id}` | Bearer | Board with all lists + cards |
+| `POST` | `/boards/{id}/lists` | Bearer | Add a column |
+| `POST` | `/lists/{id}/cards` | Bearer | Add a card |
+| `PATCH`| `/cards/{id}/move` | Bearer | Move/reorder a card (drag-and-drop) |
 | `GET`  | `/health` | – | Liveness + DB connectivity |
+
+> Full endpoint list with request/response detail: [`docs/LLD.md`](docs/LLD.md#4-api-reference).
 
 ---
 

@@ -22,13 +22,13 @@ backend/app/
 ├── models/            ✅ SQLAlchemy ORM models (one file per entity)
 │   ├── user.py  board.py  membership.py  list.py  card.py
 │   └── __init__.py    ✅ imports all models (registry + Alembic)
-├── schemas/           🟡 Pydantic request/response models
-│   ├── user.py  token.py   (board/list/card schemas ⏳)
-├── crud/              🟡 data-access functions
-│   └── user.py        (board/list/card crud ⏳)
-├── api/               🟡 routers + shared deps
-│   ├── deps.py        ✅ get_current_user / CurrentUser
-│   └── auth.py        ✅ (boards.py, lists.py, cards.py, ws.py ⏳)
+├── schemas/           ✅ Pydantic request/response models
+│   ├── user.py  token.py  board.py  list.py  card.py
+├── crud/              ✅ data-access functions
+│   ├── user.py  board.py  list.py  card.py  ordering.py
+├── api/               ✅ routers + shared deps  (ws.py ⏳)
+│   ├── deps.py  access.py
+│   └── auth.py  boards.py  lists.py  cards.py
 └── ws/                ⏳ WebSocket ConnectionManager
 ```
 
@@ -134,7 +134,7 @@ Schema is created/changed only via Alembic migrations (`backend/alembic/`).
 | `POST /auth/login` | – | form `username`,`password` | `200` `{access_token, token_type}` | `401` bad creds |
 | `GET /auth/me` | ✅ | – | `200` `UserRead` | `401` missing/invalid token |
 
-### Boards / Lists / Cards / Membership — ⏳ planned (target contract)
+### Boards / Lists / Cards — ✅ built · Membership/invite & WS — ⏳ planned
 | Method & path | Purpose | Notes |
 |---------------|---------|-------|
 | `POST /boards` | Create a board | also inserts owner membership |
@@ -221,7 +221,7 @@ sequenceDiagram
 
 ---
 
-## 6. Key algorithm — fractional positioning ⏳ (design)
+## 6. Key algorithm — fractional positioning ✅ (in `app/crud/ordering.py`)
 
 Items (lists in a board, cards in a list) are ordered by a `float position`.
 Helper logic the CRUD layer will use:

@@ -55,9 +55,17 @@ SDE reviewer might probe.
    - [OAuth2 password flow & Bearer token](#oauth2-password-flow--bearer-token)
    - [Pydantic schema validation](#pydantic-schema-validation)
    - [APIRouter](#apirouter)
+8. [Boards, Lists & Cards (Batch 2)](#8-boards-lists--cards-batch-2)
+   - [Authorization via the parent resource](#authorization-via-the-parent-resource)
+   - [404 vs 403 (don't leak existence)](#404-vs-403-dont-leak-existence)
+   - [flush() vs commit() (atomic writes)](#flush-vs-commit-atomic-writes)
+   - [SQL JOIN in SQLAlchemy](#sql-join-in-sqlalchemy)
+   - [Nested response models](#nested-response-models)
 
-> 📄 Deeper dives for this batch live in [`01-data-model.md`](01-data-model.md)
-> and [`02-auth.md`](02-auth.md). This glossary is the quick lookup.
+> 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
+> [`02-auth.md`](02-auth.md), and
+> [`03-boards-lists-cards.md`](03-boards-lists-cards.md). This glossary is the
+> quick lookup.
 
 ---
 
@@ -660,5 +668,69 @@ add one router per resource (boards, lists, cards…).
 
 ---
 
-*Last updated: after Batch 1 (data model + auth). New concepts are appended here
-as we build.*
+## 8. Boards, Lists & Cards (Batch 2)
+
+### Authorization via the parent resource
+
+**Plain English:** Child resources (lists, cards) don't store their own
+permissions — access is inherited from the **board** they belong to. One set of
+helpers (`app/api/access.py`) resolves the parent and checks membership.
+
+**Why it matters:** Keeps the permission model simple and the checks in one
+place, instead of duplicating auth logic on every table/route.
+
+---
+
+### 404 vs 403 (don't leak existence)
+
+**Plain English:** When a user asks for a board they're **not a member of**, we
+return **404 Not Found**, not 403 Forbidden — so the API never confirms that the
+board exists. We reserve **403** for "you're a member but not the owner" (edit/
+delete), where existence is already known to them.
+
+**Interview angle:** "Why 404 instead of 403 for another user's board?" →
+information disclosure: 403 would reveal the resource exists.
+
+---
+
+### flush() vs commit() (atomic writes)
+
+**Plain English:** `db.flush()` sends pending SQL to the database (so
+auto-generated ids become available) but stays **inside** the transaction;
+`db.commit()` makes everything permanent. Multiple inserts before one `commit()`
+succeed or fail **together**.
+
+**In our code:** `create_board` flushes to get `board.id`, adds the owner
+`Membership`, then commits — so a board can never exist without its owner row.
+
+---
+
+### SQL JOIN in SQLAlchemy
+
+**Plain English:** A JOIN combines rows from two tables on a matching column. We
+use it to find boards a user can access by joining `boards` to `memberships`.
+
+**In our code:**
+```python
+select(Board).join(Membership, Membership.board_id == Board.id)
+             .where(Membership.user_id == user_id)
+```
+This returns boards that have a membership row for the user — the "boards I can
+access" query.
+
+---
+
+### Nested response models
+
+**Plain English:** Pydantic schemas can embed other schemas, so one response can
+carry a whole tree. `BoardDetail` contains `ListWithCards`, which contains
+`CardRead`.
+
+**Why it matters:** `GET /boards/{id}` returns the entire board (lists + cards,
+each ordered by position) in a single payload — exactly what the UI needs to
+render — while still stripping any undeclared fields at every level.
+
+---
+
+*Last updated: after Batch 2 (boards, lists, cards + positioning). New concepts
+are appended here as we build.*
