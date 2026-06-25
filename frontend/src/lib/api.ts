@@ -4,7 +4,11 @@
 
 import type { User } from '../types'
 
-const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+// VITE_API_URL points at the backend. Locally it's a full URL; in production
+// (Render's `fromService` host) it may be a bare hostname — so if there's no
+// scheme, assume https. This keeps the same code working in both places.
+const RAW_API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const API_URL = /^https?:\/\//.test(RAW_API_URL) ? RAW_API_URL : `https://${RAW_API_URL}`
 // Same host, but the WebSocket scheme: http->ws, https->wss.
 export const WS_BASE = API_URL.replace(/^http/, 'ws')
 const TOKEN_KEY = 'token'

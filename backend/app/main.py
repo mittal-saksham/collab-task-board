@@ -23,6 +23,7 @@ from app.api import (
     members,
     ws,
 )
+from app.core.config import settings
 from app.db.session import get_db
 from app.ws.manager import manager
 
@@ -38,11 +39,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Collab Task Board API", lifespan=lifespan)
 
-# Allow the Vite dev server (different origin) to call this API from the browser.
-# Browsers block cross-origin requests unless the server opts in via CORS headers.
+# Allow the browser frontend (a different origin) to call this API. Browsers block
+# cross-origin requests unless the server opts in via CORS headers. Origins come
+# from settings: localhost in dev; in prod, `allowed_origin_regex` can permit e.g.
+# any *.onrender.com URL without hard-coding the exact deploy host.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=settings.cors_origins,
+    allow_origin_regex=settings.allowed_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

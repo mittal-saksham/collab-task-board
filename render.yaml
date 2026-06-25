@@ -1,0 +1,61 @@
+# Render Blueprint — provisions the whole app in one click:
+#   1. a managed Postgres database
+#   2. the FastAPI backend (Docker; runs migrations then serves)
+#   3. the React frontend (static site, built by Vite)
+#
+# How to use: see DEPLOY.md. In Render: New + → "Blueprint" → pick this repo.
+# Render reads this file, creates all three, and wires them together.
+
+databases:
+  - name: taskboard-db
+    plan: free
+    databaseName: taskapp
+    user: taskapp
+
+services:
+  # --- Backend API (FastAPI in Docker) ---
+  - type: web
+    name: taskboard-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      # The full DB connection string, injected from the database above. Our
+      # config reads DATABASE_URL_OVERRIDE and normalizes the driver scheme.
+      - key: DATABASE_URL_OVERRIDE
+        fromDatabase:
+          name: taskboard-db
+          property: connectionString
+      # A strong JWT signing key, generated once by Render (never in git).
+      - key: SECRET_KEY
+        generateValue: true
+      # Allow any *.onrender.com frontend to call this API (so we don't have to
+      # hard-code the exact deploy URL). See app/main.py CORS.
+      - key: ALLOWED_ORIGIN_REGEX
+        value: 'https://.*\.onrender\.com'
+      # Optional: paste your Anthropic key in the Render dashboard to enable the
+      # "Summarize board" feature. Leave unset to disable it (returns 503).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  # --- Frontend (Vite static build) ---
+  - type: web
+    name: taskboard-web
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      # Point the frontend at the API. `property: host` gives the bare hostname;
+      # src/lib/api.ts prepends https:// (and derives wss:// for WebSockets).
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: taskboard-api
+          property: host
+    routes:
+      # SPA fallback: every path serves index.html so client-side routing works.
+      - type: rewrite
+        source: /*
+        destination: /index.html

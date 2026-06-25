@@ -1,0 +1,8 @@
+# Keep the build context (and image) small and free of local-only junk.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+.git/
