@@ -23,6 +23,7 @@ updates, and a layered API.
 | React + TypeScript frontend | ✅ |
 | LLM "summarize board" (optional) | ✅ |
 | Rich cards — assignee, priority, due date, labels + detail modal & badges (G1) | ✅ |
+| Comments + per-board activity log (G2) | ✅ |
 
 ---
 
@@ -97,7 +98,7 @@ Written to be read cold and understood — start here:
 |-----|---------------|
 | [`docs/HLD.md`](docs/HLD.md) | **High-level design** — architecture, components, tech rationale, flows |
 | [`docs/LLD.md`](docs/LLD.md) | **Low-level design** — modules, schema, API contracts, sequence diagrams, algorithms |
-| [`docs/01`–`08`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer, rich cards (G1) |
+| [`docs/01`–`09`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer, rich cards (G1), comments + activity (G2) |
 | [`docs/CONCEPTS.md`](docs/CONCEPTS.md) | Plain-English glossary of every concept used (grows each batch) |
 
 ---

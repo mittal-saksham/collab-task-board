@@ -65,3 +65,24 @@ export interface Member {
   email: string;
   role: string;
 }
+
+// A message posted on a card (the card's discussion thread).
+export interface Comment {
+  id: number;
+  card_id: number;
+  body: string;
+  author: UserBrief;
+  created_at: string;
+}
+
+// One entry in a board's activity feed. `actor` is null if that user was later
+// removed; `card_id` is null for events not tied to a card (e.g. a member added).
+export interface Activity {
+  id: number;
+  board_id: number;
+  actor: UserBrief | null;
+  card_id: number | null;
+  verb: string;
+  summary: string;
+  created_at: string;
+}

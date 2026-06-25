@@ -82,6 +82,12 @@ SDE reviewer might probe.
     - [Tailwind v4: only literal class names survive](#tailwind-v4-only-literal-class-names-survive-the-build)
     - [Drag vs click (latching a gesture)](#drag-vs-click-on-the-same-element-latching-a-gesture)
     - [Remount on reparent (React keys are per-parent)](#remount-on-reparent-why-react-keys-are-per-parent)
+13. [Comments + Activity Log (G2)](#13-comments--activity-log-g2)
+    - [Append-only event log (audit feed)](#append-only-event-log-audit-feed)
+    - [Best-effort side-effect](#best-effort-side-effect-dont-let-logging-break-the-real-work)
+    - [Cross-cutting concern (one helper)](#cross-cutting-concern-one-helper-called-from-many-routes)
+    - [TanStack Query: read mutation variables in onSuccess](#tanstack-query-read-mutation-variables-in-onsuccess)
+    - [Prefix (partial) query invalidation](#prefix-partial-query-invalidation)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -965,5 +971,77 @@ card). It's also why the modal's draft state is keyed on `card.id`.
 
 ---
 
-*Last updated: after G1 (rich cards — assignee/priority/due date/labels, detail
-modal + badges). New concepts are appended here as we build.*
+## 13. Comments + Activity Log (G2)
+
+Full walkthrough: `docs/09-comments-activity.md`. New concepts:
+
+### Append-only event log (audit feed)
+
+**Plain English:** Instead of deriving "what happened" from current data, you
+*record each event as it happens* into its own table and never edit those rows —
+only insert and read them back as a feed.
+
+**In our code:** the `activities` table. Each row is a fact ("Bob moved X to
+Doing") with a `verb`, a human-readable `summary`, an actor, and a timestamp.
+
+**Why it matters:** history is a first-class thing. You can't reconstruct "who
+moved this card and when" from the card's *current* state — that information only
+exists if you logged it at the time.
+
+---
+
+### Best-effort side-effect (don't let logging break the real work)
+
+**Plain English:** A secondary action (logging) should never be able to fail the
+primary action (creating a card). Wrap the secondary part so its errors are
+swallowed.
+
+**In our code:** `app/services/activity_log.py` wraps the activity insert +
+broadcast in `try/except`; on failure it rolls back just the activity and returns
+`None`. The card was already created and committed — a logging bug can't turn that
+into a 500.
+
+**Interview angle:** *"What happens if writing the activity fails?"* → "Nothing
+user-visible. It's best-effort and isolated from the mutation's own transaction."
+
+---
+
+### Cross-cutting concern (one helper, called from many routes)
+
+**Plain English:** Some behavior (here: "record an activity and broadcast it")
+is needed in lots of places. Put it in ONE helper and call it everywhere, instead
+of duplicating the logic.
+
+**In our code:** `activity_log.log(db, board_id=…, verb=…, summary=…)` is called
+from the card create/update/move/delete routes, the member-add route, and the
+comment route. One place to change the behavior.
+
+---
+
+### TanStack Query: read mutation *variables* in `onSuccess`
+
+**Plain English:** A mutation's `onSuccess` callback receives `(data, variables)`
+— the exact arguments you passed to `.mutate()`. Use the variables to decide which
+cache entries to refetch.
+
+**In our code:** comments are cached per-card (`['comments', cardId]`) but the
+comment mutations live in the board-scoped `useBoardMutations`. We pass `cardId`
+in the mutation variables and read it in `onSuccess` to invalidate the right
+card's thread (and the board's activity feed).
+
+---
+
+### Prefix (partial) query invalidation
+
+**Plain English:** `invalidateQueries({ queryKey: ['comments'] })` invalidates
+*every* query whose key STARTS WITH `['comments']` — all cards' threads at once —
+not just one exact key.
+
+**In our code:** the WebSocket handler doesn't know which card a `comment.created`
+event was for, so it invalidates the whole `['comments']` prefix. Only the open
+card's thread is actually mounted, so the refetch cost is one request.
+
+---
+
+*Last updated: after G2 (comments + per-board activity log; modal restyled to a
+content+sidebar layout). New concepts are appended here as we build.*

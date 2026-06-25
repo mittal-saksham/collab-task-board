@@ -8,9 +8,11 @@ So elsewhere we can just `import app.models` and the whole schema is loaded.
 """
 
 from app.db.base import Base
+from app.models.activity import Activity
 from app.models.associations import card_labels
 from app.models.board import Board
 from app.models.card import Card
+from app.models.comment import Comment
 from app.models.label import Label
 from app.models.list import List
 from app.models.membership import Membership
@@ -25,4 +27,6 @@ __all__ = [
     "Card",
     "Label",
     "card_labels",
+    "Comment",
+    "Activity",
 ]

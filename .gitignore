@@ -21,3 +21,7 @@ dist/
 # --- Test / browser-automation artifacts (Playwright MCP snapshots, screenshots) ---
 .playwright-mcp/
 /board-*.png
+/g2-modal.png
+
+# --- Local scratch (DB backups, throwaway test scripts) ---
+/scratchpad/

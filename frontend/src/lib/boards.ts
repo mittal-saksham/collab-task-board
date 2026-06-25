@@ -3,7 +3,16 @@
 // src/hooks.ts call these.
 
 import { apiFetch } from './api'
-import type { Board, BoardDetail, Card, Label, List, Member } from '../types'
+import type {
+  Activity,
+  Board,
+  BoardDetail,
+  Card,
+  Comment,
+  Label,
+  List,
+  Member,
+} from '../types'
 
 // --- Boards ---
 export const getBoards = () => apiFetch<Board[]>('/boards')
@@ -76,6 +85,21 @@ export const detachLabel = (cardId: number, labelId: number) =>
 // --- Optional: LLM summary ---
 export const summarizeBoard = (boardId: number) =>
   apiFetch<{ summary: string }>(`/boards/${boardId}/summarize`, { method: 'POST' })
+
+// --- Comments (a card's discussion thread) ---
+export const getComments = (cardId: number) =>
+  apiFetch<Comment[]>(`/cards/${cardId}/comments`)
+export const createComment = (cardId: number, body: string) =>
+  apiFetch<Comment>(`/cards/${cardId}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ body }),
+  })
+export const deleteComment = (id: number) =>
+  apiFetch<void>(`/comments/${id}`, { method: 'DELETE' })
+
+// --- Activity feed (board-level, read-only) ---
+export const getActivities = (boardId: number) =>
+  apiFetch<Activity[]>(`/boards/${boardId}/activities`)
 
 // --- Members ---
 export const getMembers = (boardId: number) =>

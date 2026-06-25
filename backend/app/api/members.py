@@ -15,6 +15,7 @@ from app.crud import membership as membership_crud
 from app.crud import user as user_crud
 from app.db.session import get_db
 from app.schemas.member import MemberInvite, MemberRead
+from app.services import activity_log
 from app.ws.manager import emit
 
 # board_id is part of the prefix, so every handler receives it as a path param.
@@ -54,6 +55,13 @@ def add_member(
     membership = membership_crud.add_member(db, board_id=board_id, user_id=user.id)
     member = MemberRead(user_id=user.id, email=user.email, role=membership.role)
     emit(board_id, "member.added", member.model_dump(mode="json"))
+    activity_log.log(
+        db,
+        board_id=board_id,
+        actor_id=current_user.id,
+        verb="added_member",
+        summary=f"added {user.email} to the board",
+    )
     return member
 
 

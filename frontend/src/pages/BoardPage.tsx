@@ -15,6 +15,7 @@ import { Column } from '../components/Column'
 import { CardItem } from '../components/CardItem'
 import { CardModal } from '../components/CardModal'
 import { MembersPanel } from '../components/MembersPanel'
+import { ActivityPanel } from '../components/ActivityPanel'
 import {
   useBoard,
   useBoardLiveUpdates,
@@ -42,6 +43,7 @@ export function BoardPage() {
   }, [board])
 
   const [showMembers, setShowMembers] = useState(false)
+  const [showActivity, setShowActivity] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
   // Which card's detail modal is open (by id). We look the card itself up from
   // `lists` on each render so the modal always shows the latest server data — and
@@ -143,6 +145,17 @@ export function BoardPage() {
                   ownerId={board.owner_id}
                   onClose={() => setShowMembers(false)}
                 />
+              )}
+            </div>
+            <div className="relative">
+              <button
+                onClick={() => setShowActivity((v) => !v)}
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:bg-slate-50"
+              >
+                Activity
+              </button>
+              {showActivity && (
+                <ActivityPanel boardId={id} onClose={() => setShowActivity(false)} />
               )}
             </div>
             <button

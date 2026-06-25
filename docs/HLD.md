@@ -217,5 +217,6 @@ because the MVP implements them:
 ✅ React + TypeScript frontend (auth, board UI, drag-and-drop, live updates, members)
 ✅ Stretch: optional LLM "summarize board" (Claude)
 ✅ Jira-style G1: rich cards — assignee, priority, due date, labels (M2M) + detail modal & badges (`docs/08`)
-⏳ Jira-style G2–G4 (planned): comments + activity log · issue types + story points + WIP limits · search/filter bar
+✅ Jira-style G2: comments + per-board activity log; card modal restyled to content+sidebar (`docs/09`)
+⏳ Jira-style G3–G4 (planned): issue types + story points + WIP limits · search/filter bar
 ⏳ Stretch (not built): optimistic UI, live deployment

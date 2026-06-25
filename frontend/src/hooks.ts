@@ -50,11 +50,15 @@ export function useBoardLiveUpdates(boardId: number) {
 
     const ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?token=${token}`)
     ws.onmessage = () => {
-      // Refetch the board contents, its member list, AND its label palette on any
-      // event — so a label another user creates shows up here too.
+      // Refetch everything this board view shows, on any event. Cheapest way to
+      // stay live: let each query decide if its data actually changed.
       qc.invalidateQueries({ queryKey: ['board', boardId] })
       qc.invalidateQueries({ queryKey: ['members', boardId] })
       qc.invalidateQueries({ queryKey: ['labels', boardId] })
+      qc.invalidateQueries({ queryKey: ['activities', boardId] })
+      // Comments are keyed per-card; the event doesn't say which, so invalidate
+      // all comment queries (only the open card's thread is actually mounted).
+      qc.invalidateQueries({ queryKey: ['comments'] })
     }
     // Close the socket when leaving the board / unmounting.
     return () => ws.close()
@@ -71,6 +75,22 @@ export function useLabels(boardId: number) {
   return useQuery({
     queryKey: ['labels', boardId],
     queryFn: () => api.getLabels(boardId),
+  })
+}
+
+// --- Comments (a card's thread) ---
+export function useComments(cardId: number) {
+  return useQuery({
+    queryKey: ['comments', cardId],
+    queryFn: () => api.getComments(cardId),
+  })
+}
+
+// --- Activity feed (board-level) ---
+export function useActivities(boardId: number) {
+  return useQuery({
+    queryKey: ['activities', boardId],
+    queryFn: () => api.getActivities(boardId),
   })
 }
 
@@ -168,6 +188,22 @@ export function useBoardMutations(boardId: number) {
       mutationFn: (v: { cardId: number; labelId: number }) =>
         api.detachLabel(v.cardId, v.labelId),
       onSuccess: invalidate,
+    }),
+    // Comments. We pass cardId through the mutation variables so onSuccess knows
+    // which card's thread (and the board's activity feed) to refetch.
+    createComment: useMutation({
+      mutationFn: (v: { cardId: number; body: string }) =>
+        api.createComment(v.cardId, v.body),
+      onSuccess: (_data, v) => {
+        qc.invalidateQueries({ queryKey: ['comments', v.cardId] })
+        qc.invalidateQueries({ queryKey: ['activities', boardId] })
+      },
+    }),
+    deleteComment: useMutation({
+      mutationFn: (v: { cardId: number; commentId: number }) =>
+        api.deleteComment(v.commentId),
+      onSuccess: (_data, v) =>
+        qc.invalidateQueries({ queryKey: ['comments', v.cardId] }),
     }),
   }
 }
