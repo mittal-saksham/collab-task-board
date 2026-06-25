@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.api import auth, boards, cards, lists, members, ws
+from app.api import auth, boards, cards, labels, lists, members, ws
 from app.db.session import get_db
 from app.ws.manager import manager
 
@@ -44,6 +44,7 @@ app.include_router(boards.router)   # /boards ...
 app.include_router(lists.router)    # /boards/{id}/lists, /lists/{id} ...
 app.include_router(cards.router)    # /lists/{id}/cards, /cards/{id} ...
 app.include_router(members.router)  # /boards/{id}/members ...
+app.include_router(labels.router)   # /boards/{id}/labels, /cards/{id}/labels/{id}
 app.include_router(ws.router)       # /ws/boards/{id}  (live updates)
 
 

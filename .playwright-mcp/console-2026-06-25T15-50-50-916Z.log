@@ -1,3 +1,7 @@
 [     101ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=6f69fea0:14335
 [     122ms] [WARNING] WebSocket connection to 'ws://localhost:8000/ws/boards/4?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5IiwiZXhwIjoxNzgyNDA1NDY3fQ.BvgqdgsJMzhQdgOdM17w8BhguN-ZxKv-n7jmbN2ryh4' failed: WebSocket is closed before the connection is established. @ http://localhost:5173/src/hooks.ts?t=1782402590129:53
 [  370881ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:992
+[ 3916406ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=6f69fea0:14335
+[ 3916414ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:8000/auth/me:0
+[ 3916417ms] [ERROR] Failed to load resource: the server responded with a status of 401 (Unauthorized) @ http://localhost:8000/auth/me:0
+[ 3916519ms] [VERBOSE] [DOM] Input elements should have autocomplete attributes (suggested: "current-password"): (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5173/login:0

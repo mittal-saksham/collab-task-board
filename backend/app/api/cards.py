@@ -14,6 +14,7 @@ from app.api import access
 from app.api.deps import CurrentUser
 from app.crud import card as card_crud
 from app.crud import list as list_crud
+from app.crud import membership as membership_crud
 from app.db.session import get_db
 from app.schemas.card import CardCreate, CardMove, CardRead, CardUpdate
 from app.ws.manager import emit
@@ -55,9 +56,16 @@ def update_card(
     card_id: int, payload: CardUpdate, current_user: CurrentUser, db: DbSession
 ):
     card = access.require_card_access(db, card_id, current_user.id)
-    card = card_crud.update_card(
-        db, card, title=payload.title, description=payload.description
-    )
+    fields = payload.model_dump(exclude_unset=True)  # only the keys actually sent
+    # If assigning someone (not unassigning), they must be a member of this board.
+    if fields.get("assignee_id") is not None:
+        board_id = _board_id_of(db, card)
+        if membership_crud.get_membership(db, board_id, fields["assignee_id"]) is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Assignee must be a member of this board",
+            )
+    card = card_crud.update_card(db, card, fields)
     emit(_board_id_of(db, card), "card.updated", _payload(card))
     return card
 

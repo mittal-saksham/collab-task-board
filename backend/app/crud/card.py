@@ -35,14 +35,17 @@ def create_card(
     return new_card
 
 
-def update_card(
-    db: Session, card: Card, *, title: str | None, description: str | None
-) -> Card:
-    """Patch title and/or description. `None` means "leave unchanged"."""
-    if title is not None:
-        card.title = title
-    if description is not None:
-        card.description = description
+# Only these fields can be set through update_card (whitelist — never trust
+# arbitrary keys from the request).
+_UPDATABLE_FIELDS = ("title", "description", "priority", "due_date", "assignee_id")
+
+
+def update_card(db: Session, card: Card, fields: dict) -> Card:
+    """Apply only the provided fields (the route passes `model_dump(exclude_unset=True)`,
+    so a present `assignee_id: None` unassigns, while an absent key is left alone)."""
+    for key in _UPDATABLE_FIELDS:
+        if key in fields:
+            setattr(card, key, fields[key])
     db.commit()
     db.refresh(card)
     return card

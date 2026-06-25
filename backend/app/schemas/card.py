@@ -1,9 +1,15 @@
 """Pydantic schemas for cards."""
 
-from datetime import datetime
-from typing import Optional
+from datetime import date, datetime
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.schemas.label import LabelRead
+from app.schemas.user import UserBrief
+
+# The five Jira priority levels.
+Priority = Literal["highest", "high", "medium", "low", "lowest"]
 
 
 class CardCreate(BaseModel):
@@ -12,18 +18,19 @@ class CardCreate(BaseModel):
 
 
 class CardUpdate(BaseModel):
-    # All optional: a PATCH can change just the title, just the description, etc.
+    """All fields optional. The route applies only the fields actually SENT
+    (`exclude_unset`), so `assignee_id: null` unassigns while omitting it leaves
+    the assignee unchanged."""
+
     title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     description: Optional[str] = None
+    priority: Optional[Priority] = None
+    due_date: Optional[date] = None
+    assignee_id: Optional[int] = None
 
 
 class CardMove(BaseModel):
-    """Where to move a card. The server computes the new float position."""
-
-    # The list to move into (may equal the current list for a pure reorder).
     list_id: int
-    # Place this card immediately AFTER the card with this id.
-    # None  -> move to the FRONT of the target list.
     after_id: Optional[int] = None
 
 
@@ -33,6 +40,10 @@ class CardRead(BaseModel):
     title: str
     description: Optional[str]
     position: float
+    priority: str
+    due_date: Optional[date]
+    assignee: Optional[UserBrief]  # built from card.assignee (a User) or null
+    labels: list[LabelRead] = []
     created_at: datetime
     updated_at: datetime
 

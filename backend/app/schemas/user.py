@@ -18,6 +18,15 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class UserBrief(BaseModel):
+    """Minimal user info — used where a user is referenced (e.g. a card assignee)."""
+
+    id: int
+    email: EmailStr
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class UserRead(BaseModel):
     """What we return ABOUT a user. Note: no password / hash field ever leaves here."""
 
