@@ -1,11 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
-import type { List } from '../types'
+import type { Card, List } from '../types'
 import { SortableCard } from './SortableCard'
 
 interface Props {
   list: List
+  // The cards to actually render (already filtered by the board's search bar).
+  // We keep this separate from `list.cards` so the WIP count below stays the FULL
+  // count, not the filtered one.
+  visibleCards: Card[]
   onAddCard: (title: string) => void
   onDeleteCard: (cardId: number) => void
   onDeleteList: () => void
@@ -17,6 +21,7 @@ interface Props {
 // and wraps its cards in a SortableContext so they can be reordered by dragging.
 export function Column({
   list,
+  visibleCards,
   onAddCard,
   onDeleteCard,
   onDeleteList,
@@ -26,10 +31,11 @@ export function Column({
   const { setNodeRef } = useDroppable({ id: `list-${list.id}` })
   const [title, setTitle] = useState('')
   const [editingWip, setEditingWip] = useState(false)
-  const cardIds = list.cards.map((c) => `card-${c.id}`)
+  const cardIds = visibleCards.map((c) => `card-${c.id}`)
 
   // WIP limit is DISPLAY-ONLY: we show count (and "/ limit" if set) and turn the
-  // badge red when over — but nothing here blocks a drop.
+  // badge red when over — but nothing here blocks a drop. Count is the FULL list,
+  // independent of any active search filter.
   const count = list.cards.length
   const over = list.wip_limit != null && count > list.wip_limit
 
@@ -95,7 +101,7 @@ export function Column({
       <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
         {/* min-height keeps an empty column droppable */}
         <div ref={setNodeRef} className="flex min-h-2 flex-col gap-2">
-          {list.cards.map((c) => (
+          {visibleCards.map((c) => (
             <SortableCard
               key={c.id}
               card={c}

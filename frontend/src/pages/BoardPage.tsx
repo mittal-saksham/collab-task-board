@@ -16,6 +16,13 @@ import { CardItem } from '../components/CardItem'
 import { CardModal } from '../components/CardModal'
 import { MembersPanel } from '../components/MembersPanel'
 import { ActivityPanel } from '../components/ActivityPanel'
+import { FilterBar } from '../components/FilterBar'
+import {
+  EMPTY_FILTERS,
+  cardMatches,
+  filtersActive,
+  type Filters,
+} from '../lib/filters'
 import {
   useBoard,
   useBoardLiveUpdates,
@@ -45,6 +52,14 @@ export function BoardPage() {
   const [showMembers, setShowMembers] = useState(false)
   const [showActivity, setShowActivity] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  // Client-side search/filter (G4). Filters the *displayed* cards only; the
+  // underlying `lists` (and the drag logic) keep the full data.
+  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS)
+  const active = filtersActive(filters)
+  const allCards = lists.flatMap((l) => l.cards)
+  const matchCount = active
+    ? allCards.filter((c) => cardMatches(c, filters)).length
+    : allCards.length
   // Which card's detail modal is open (by id). We look the card itself up from
   // `lists` on each render so the modal always shows the latest server data — and
   // if that card gets deleted, the lookup returns null and the modal closes.
@@ -172,6 +187,16 @@ export function BoardPage() {
         )}
       </AppHeader>
 
+      {board && (
+        <FilterBar
+          boardId={id}
+          filters={filters}
+          onChange={setFilters}
+          matchCount={matchCount}
+          totalCount={allCards.length}
+        />
+      )}
+
       <main className="flex-1 overflow-x-auto p-4">
         {isLoading && <p className="text-slate-500">Loading…</p>}
         {error && <p className="text-red-600">Couldn't load this board.</p>}
@@ -188,6 +213,9 @@ export function BoardPage() {
                 <Column
                   key={list.id}
                   list={list}
+                  visibleCards={
+                    active ? list.cards.filter((c) => cardMatches(c, filters)) : list.cards
+                  }
                   onAddCard={(title) => m.createCard.mutate({ listId: list.id, title })}
                   onDeleteCard={(cardId) => m.deleteCard.mutate(cardId)}
                   onDeleteList={() => m.deleteList.mutate(list.id)}

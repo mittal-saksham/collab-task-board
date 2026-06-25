@@ -219,5 +219,5 @@ because the MVP implements them:
 ✅ Jira-style G1: rich cards — assignee, priority, due date, labels (M2M) + detail modal & badges (`docs/08`)
 ✅ Jira-style G2: comments + per-board activity log; card modal restyled to content+sidebar (`docs/09`)
 ✅ Jira-style G3: issue types + story points + display-only WIP limits (`docs/10`)
-⏳ Jira-style G4 (planned): client-side search/filter bar (text/assignee/label/priority)
+✅ Jira-style G4: client-side search/filter bar — text/assignee/label/priority/type (`docs/11`)
 ⏳ Stretch (not built): optimistic UI, live deployment

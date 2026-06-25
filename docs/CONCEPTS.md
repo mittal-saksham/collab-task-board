@@ -92,6 +92,10 @@ SDE reviewer might probe.
     - [Display-only vs enforced constraint](#display-only-vs-enforced-constraint-a-product-decision-in-code)
     - [Widening a required field to optional](#widening-a-required-field-to-optional-so-updates-compose)
     - [Controlled vs uncontrolled inputs (React)](#controlled-vs-uncontrolled-inputs-react)
+15. [Search / Filter Bar (G4)](#15-search--filter-bar-g4)
+    - [Client-side filtering](#client-side-filtering-filter-data-you-already-have)
+    - [Pure predicate + derived view](#pure-predicate--derived-view-dont-mutate-derive)
+    - [Separating what to show from what to count](#separating-what-to-show-from-what-to-count)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -1096,5 +1100,44 @@ control that doesn't need to re-render on each keystroke.
 
 ---
 
-*Last updated: after G3 (issue types + story points + display-only WIP limits).
-New concepts are appended here as we build.*
+## 15. Search / Filter Bar (G4)
+
+Full walkthrough: `docs/11-search-filter.md`.
+
+### Client-side filtering (filter data you already have)
+
+**Plain English:** When the full dataset is already in the browser (the whole
+board), you can search/filter it instantly in JS — no API call. You only need
+server-side search when the data is too big to ship to the client.
+
+**In our code:** `lib/filters.ts` (`cardMatches`) filters the already-loaded board.
+No new endpoint, no DB change — G4 is frontend-only.
+
+---
+
+### Pure predicate + derived view (don't mutate, derive)
+
+**Plain English:** Keep the matching rule as a **pure function** and *derive* the
+visible list from state on each render, instead of storing a second filtered copy
+you have to keep in sync.
+
+**In our code:** `BoardPage` holds the `filters` state and computes
+`visibleCards = active ? list.cards.filter(c => cardMatches(c, filters)) : list.cards`
+inline. The source of truth (`lists`) is never mutated by filtering — the filtered
+view is derived. This is why drag (which uses the full `lists`) is unaffected.
+
+---
+
+### Separating "what to show" from "what to count"
+
+**Plain English:** A filtered *view* shouldn't change a *count* that's about the
+real data. Pass the two separately.
+
+**In our code:** `Column` gets `visibleCards` (what to render) and `list` (the full
+data). It renders `visibleCards` but the WIP badge counts `list.cards.length` — so
+hiding a card with a search filter never changes the column's WIP count.
+
+---
+
+*Last updated: after G4 (client-side search/filter bar) — all four Jira-style
+groups complete. New concepts are appended here as we build.*
