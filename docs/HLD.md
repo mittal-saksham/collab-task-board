@@ -216,4 +216,6 @@ because the MVP implements them:
 ✅ Membership / invites (invite existing users by email) — **backend MVP complete**
 ✅ React + TypeScript frontend (auth, board UI, drag-and-drop, live updates, members)
 ✅ Stretch: optional LLM "summarize board" (Claude)
-⏳ Stretch (not built): optimistic UI, activity log, live deployment
+✅ Jira-style G1: rich cards — assignee, priority, due date, labels (M2M) + detail modal & badges (`docs/08`)
+⏳ Jira-style G2–G4 (planned): comments + activity log · issue types + story points + WIP limits · search/filter bar
+⏳ Stretch (not built): optimistic UI, live deployment

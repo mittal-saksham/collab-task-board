@@ -3,7 +3,7 @@
 // src/hooks.ts call these.
 
 import { apiFetch } from './api'
-import type { Board, BoardDetail, Card, List, Member } from '../types'
+import type { Board, BoardDetail, Card, Label, List, Member } from '../types'
 
 // --- Boards ---
 export const getBoards = () => apiFetch<Board[]>('/boards')
@@ -40,6 +40,38 @@ export const moveCard = (id: number, listId: number, afterId: number | null) =>
     method: 'PATCH',
     body: JSON.stringify({ list_id: listId, after_id: afterId }),
   })
+
+// PATCH a card's editable fields. Every field is OPTIONAL, but note the null vs
+// undefined distinction: the backend uses `exclude_unset`, so only keys actually
+// PRESENT in the JSON are applied. To CLEAR a field you must send an explicit
+// `null` (e.g. assignee_id: null to unassign) — leaving the key off means "no
+// change". JSON.stringify drops `undefined` keys but keeps `null`, so callers
+// pass null (not undefined/"") to clear.
+export interface CardPatch {
+  title?: string
+  description?: string | null
+  priority?: string
+  due_date?: string | null
+  assignee_id?: number | null
+}
+export const updateCard = (id: number, patch: CardPatch) =>
+  apiFetch<Card>(`/cards/${id}`, { method: 'PATCH', body: JSON.stringify(patch) })
+
+// --- Labels (board-scoped tags) ---
+export const getLabels = (boardId: number) =>
+  apiFetch<Label[]>(`/boards/${boardId}/labels`)
+export const createLabel = (boardId: number, name: string, color: string) =>
+  apiFetch<Label>(`/boards/${boardId}/labels`, {
+    method: 'POST',
+    body: JSON.stringify({ name, color }),
+  })
+export const deleteLabel = (id: number) =>
+  apiFetch<void>(`/labels/${id}`, { method: 'DELETE' })
+// Attach/detach return the UPDATED card (with its new labels array).
+export const attachLabel = (cardId: number, labelId: number) =>
+  apiFetch<Card>(`/cards/${cardId}/labels/${labelId}`, { method: 'PUT' })
+export const detachLabel = (cardId: number, labelId: number) =>
+  apiFetch<Card>(`/cards/${cardId}/labels/${labelId}`, { method: 'DELETE' })
 
 // --- Optional: LLM summary ---
 export const summarizeBoard = (boardId: number) =>

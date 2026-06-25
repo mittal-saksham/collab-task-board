@@ -50,9 +50,11 @@ export function useBoardLiveUpdates(boardId: number) {
 
     const ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?token=${token}`)
     ws.onmessage = () => {
-      // Refetch both the board contents and its member list on any event.
+      // Refetch the board contents, its member list, AND its label palette on any
+      // event — so a label another user creates shows up here too.
       qc.invalidateQueries({ queryKey: ['board', boardId] })
       qc.invalidateQueries({ queryKey: ['members', boardId] })
+      qc.invalidateQueries({ queryKey: ['labels', boardId] })
     }
     // Close the socket when leaving the board / unmounting.
     return () => ws.close()
@@ -62,6 +64,14 @@ export function useBoardLiveUpdates(boardId: number) {
 // --- Optional: LLM summary (no cache; returns the summary text) ---
 export function useSummarizeBoard(boardId: number) {
   return useMutation({ mutationFn: () => api.summarizeBoard(boardId) })
+}
+
+// --- Labels (a board's tag palette) ---
+export function useLabels(boardId: number) {
+  return useQuery({
+    queryKey: ['labels', boardId],
+    queryFn: () => api.getLabels(boardId),
+  })
 }
 
 // --- Members ---
@@ -93,6 +103,10 @@ export function useRemoveMember(boardId: number) {
 export function useBoardMutations(boardId: number) {
   const qc = useQueryClient()
   const invalidate = () => qc.invalidateQueries({ queryKey: ['board', boardId] })
+  // Creating/deleting a label changes the board's PALETTE, so those also refetch
+  // the ['labels', boardId] query (attach/detach only change a card → board query).
+  const invalidateLabels = () =>
+    qc.invalidateQueries({ queryKey: ['labels', boardId] })
 
   return {
     createList: useMutation({
@@ -120,6 +134,39 @@ export function useBoardMutations(boardId: number) {
     moveCard: useMutation({
       mutationFn: (v: { id: number; listId: number; afterId: number | null }) =>
         api.moveCard(v.id, v.listId, v.afterId),
+      onSuccess: invalidate,
+    }),
+    // Edit a card's fields (title/description/priority/due_date/assignee_id).
+    updateCard: useMutation({
+      mutationFn: (v: { id: number; patch: api.CardPatch }) =>
+        api.updateCard(v.id, v.patch),
+      onSuccess: invalidate,
+    }),
+    // Label palette management.
+    createLabel: useMutation({
+      mutationFn: (v: { name: string; color: string }) =>
+        api.createLabel(boardId, v.name, v.color),
+      onSuccess: () => {
+        invalidate()
+        invalidateLabels()
+      },
+    }),
+    deleteLabel: useMutation({
+      mutationFn: (id: number) => api.deleteLabel(id),
+      onSuccess: () => {
+        invalidate()
+        invalidateLabels()
+      },
+    }),
+    // Attach/detach a label on a card.
+    attachLabel: useMutation({
+      mutationFn: (v: { cardId: number; labelId: number }) =>
+        api.attachLabel(v.cardId, v.labelId),
+      onSuccess: invalidate,
+    }),
+    detachLabel: useMutation({
+      mutationFn: (v: { cardId: number; labelId: number }) =>
+        api.detachLabel(v.cardId, v.labelId),
       onSuccess: invalidate,
     }),
   }

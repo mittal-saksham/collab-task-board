@@ -7,6 +7,21 @@ export interface User {
   created_at: string;
 }
 
+// Minimal user shape returned where a user is *referenced* (e.g. a card's
+// assignee). Mirrors the backend's UserBrief schema (id + email only).
+export interface UserBrief {
+  id: number;
+  email: string;
+}
+
+// A colored, board-scoped tag that can be attached to cards. `color` is a plain
+// name (e.g. "indigo"); the UI maps it to Tailwind classes via LABEL_STYLES.
+export interface Label {
+  id: number;
+  name: string;
+  color: string;
+}
+
 export interface Board {
   id: number;
   title: string;
@@ -21,6 +36,12 @@ export interface Card {
   title: string;
   description: string | null;
   position: number;
+  // --- Jira-style fields (G1). All present on every card: the backend backfills
+  // priority='medium', and assignee/due_date are null + labels=[] by default. ---
+  priority: string;          // one of: highest | high | medium | low | lowest
+  due_date: string | null;   // ISO date "YYYY-MM-DD", or null
+  assignee: UserBrief | null;
+  labels: Label[];
   created_at: string;
   updated_at: string;
 }

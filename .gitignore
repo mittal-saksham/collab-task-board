@@ -17,3 +17,7 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# --- Test / browser-automation artifacts (Playwright MCP snapshots, screenshots) ---
+.playwright-mcp/
+/board-*.png

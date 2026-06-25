@@ -75,6 +75,13 @@ SDE reviewer might probe.
     - [LLM API call (single request)](#llm-api-call-single-request)
     - [Optional, isolated feature (config flag)](#optional-isolated-feature-config-flag)
     - [Graceful degradation](#graceful-degradation)
+12. [Rich Cards / Jira-style fields (G1)](#12-rich-cards--jira-style-fields-g1)
+    - [Many-to-many via an association table](#many-to-many-m2m-via-an-association-table)
+    - [server_default vs Python default](#server_default-vs-python-default-backfilling-a-not-null-column)
+    - [Partial update with exclude_unset](#partial-update-with-exclude_unset--the-null-vs-absent-distinction)
+    - [Tailwind v4: only literal class names survive](#tailwind-v4-only-literal-class-names-survive-the-build)
+    - [Drag vs click (latching a gesture)](#drag-vs-click-on-the-same-element-latching-a-gesture)
+    - [Remount on reparent (React keys are per-parent)](#remount-on-reparent-why-react-keys-are-per-parent)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -869,5 +876,94 @@ that message in the summary modal.
 
 ---
 
-*Last updated: after Batch 6 (LLM summarizer) — MVP + the optional AI feature
-complete. New concepts are appended here as we build.*
+## 12. Rich Cards / Jira-style fields (G1)
+
+Full walkthrough: `docs/08-rich-cards.md`. The concepts G1 introduced:
+
+### Many-to-many (M2M) via an association table
+
+**Plain English:** When *both* sides can have *many* of the other (a card has many
+labels; a label is on many cards), SQL needs a third table holding just the two
+foreign keys. That junction table is the "association table".
+
+**In our code:** `card_labels(card_id, label_id)` in `app/models/associations.py`,
+wired with `relationship("X", secondary=card_labels, back_populates=…)`.
+
+**Why it matters:** It's the canonical way to model tags, roles, memberships —
+anything that's a "both-ways many". The composite primary key `(card_id, label_id)`
+also prevents attaching the same label twice.
+
+---
+
+### `server_default` vs Python `default` (backfilling a NOT NULL column)
+
+**Plain English:** A Python `default=` only applies when *the ORM* inserts a row. A
+`server_default=` writes `DEFAULT …` into the table definition, so the **database**
+fills the value — including for rows that already existed before the column did.
+
+**In our code:** `priority = mapped_column(String(20), nullable=False,
+server_default="medium")`. Adding a `NOT NULL` column to a populated table only
+works because Postgres backfills every existing card with `'medium'`.
+
+**Interview angle:** *"How do you add a required column to a table that already has
+data?"* → nullable + backfill + set not-null, **or** a DB-level default. We used the
+default.
+
+---
+
+### Partial update with `exclude_unset` — the `null` vs *absent* distinction
+
+**Plain English:** For a PATCH, you want to change only the fields the client sent.
+`model_dump(exclude_unset=True)` returns only keys that were actually present in the
+JSON. A key *absent* = "leave unchanged"; a key present as `null` = "clear it".
+
+**In our code:** `payload.model_dump(exclude_unset=True)` in `PATCH /cards/{id}`.
+The frontend sends `{assignee_id: null}` to unassign, and **omits** the key to keep
+the assignee. (`JSON.stringify` drops `undefined` keys but keeps `null` — so the UI
+passes `null`, never `undefined`/`""`, to clear a field.)
+
+---
+
+### Tailwind v4: only literal class names survive the build
+
+**Plain English:** Tailwind scans your source for complete class-name *strings* and
+emits CSS only for those. A class built at runtime like `` `bg-${color}-100` `` is
+never seen, so its CSS is never generated → the element renders unstyled.
+
+**In our code:** `LABEL_STYLES` in `components/CardBadges.tsx` is a static map of
+allowed color → literal classes (`indigo: 'bg-indigo-100 text-indigo-700'`). The
+label color picker is driven from that map's keys, so every label has a real style.
+
+---
+
+### Drag vs click on the same element (latching a gesture)
+
+**Plain English:** An element that's both draggable and clickable needs to tell a
+real click apart from the click the browser fires at the *end* of a drag. We latch
+the library's own "is dragging" state into a `ref`; the click handler reads the
+latch and ignores the click if a drag just happened.
+
+**In our code:** `SortableCard.tsx` — `useEffect(() => { if (isDragging)
+dragged.current = true })`, reset on `onPointerDownCapture`, checked in `onClick`.
+Capture phase is used so our pointer handler doesn't collide with dnd-kit's
+bubble-phase one. Works because a `click` targets the nearest common ancestor of
+the down/up elements (see `docs/08` §5, Trap 4).
+
+---
+
+### Remount on reparent (why React keys are per-parent)
+
+**Plain English:** A React `key` is unique only *among siblings under one parent*.
+Move a keyed element to a **different parent** and React unmounts it and mounts a
+fresh instance — local state and refs reset. Move it within the same parent and it's
+preserved.
+
+**Why it matters here:** dragging a card to another column reparents it → the card's
+component remounts. We reasoned through this to prove the per-card drag latch is
+still correct (the remount case is exactly the case where no click reaches the
+card). It's also why the modal's draft state is keyed on `card.id`.
+
+---
+
+*Last updated: after G1 (rich cards — assignee/priority/due date/labels, detail
+modal + badges). New concepts are appended here as we build.*

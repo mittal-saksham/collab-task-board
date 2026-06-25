@@ -13,6 +13,7 @@ import {
 import { AppHeader } from '../components/AppHeader'
 import { Column } from '../components/Column'
 import { CardItem } from '../components/CardItem'
+import { CardModal } from '../components/CardModal'
 import { MembersPanel } from '../components/MembersPanel'
 import {
   useBoard,
@@ -42,6 +43,14 @@ export function BoardPage() {
 
   const [showMembers, setShowMembers] = useState(false)
   const [summaryOpen, setSummaryOpen] = useState(false)
+  // Which card's detail modal is open (by id). We look the card itself up from
+  // `lists` on each render so the modal always shows the latest server data — and
+  // if that card gets deleted, the lookup returns null and the modal closes.
+  const [openCardId, setOpenCardId] = useState<number | null>(null)
+  const openCard =
+    openCardId == null
+      ? null
+      : lists.flatMap((l) => l.cards).find((c) => c.id === openCardId) ?? null
   const summarize = useSummarizeBoard(id)
   const [activeCard, setActiveCard] = useState<Card | null>(null)
   // Require a 5px drag before activating, so plain clicks (e.g. the × button) work.
@@ -169,6 +178,7 @@ export function BoardPage() {
                   onAddCard={(title) => m.createCard.mutate({ listId: list.id, title })}
                   onDeleteCard={(cardId) => m.deleteCard.mutate(cardId)}
                   onDeleteList={() => m.deleteList.mutate(list.id)}
+                  onOpenCard={(cardId) => setOpenCardId(cardId)}
                 />
               ))}
 
@@ -189,6 +199,15 @@ export function BoardPage() {
           </DndContext>
         )}
       </main>
+
+      {openCard && (
+        <CardModal
+          key={openCard.id}
+          card={openCard}
+          boardId={id}
+          onClose={() => setOpenCardId(null)}
+        />
+      )}
 
       {summaryOpen && (
         <div
