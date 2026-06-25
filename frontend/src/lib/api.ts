@@ -5,6 +5,8 @@
 import type { User } from '../types'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+// Same host, but the WebSocket scheme: http->ws, https->wss.
+export const WS_BASE = API_URL.replace(/^http/, 'ws')
 const TOKEN_KEY = 'token'
 
 // --- token storage (localStorage, per our auth design) ---

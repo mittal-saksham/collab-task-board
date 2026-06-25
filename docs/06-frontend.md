@@ -4,8 +4,8 @@ The web client that consumes the API and the live WebSocket feed. This doc cover
 the overall setup and the **auth foundation** (sub-batch 5a); board UI and
 drag-and-drop are added in the following sub-batches.
 
-> Status: 🟡 in progress. ✅ scaffold + auth + routing + board UI + drag-and-drop ·
-> ⏳ live updates, members UI.
+> Status: 🟡 in progress. ✅ auth + routing + board UI + drag-and-drop + live
+> updates · ⏳ members UI.
 
 ---
 
@@ -131,5 +131,17 @@ Query refetch.
 Verified in a browser: dragging a card `To Do → Doing` moved it and **persisted**
 (confirmed via the API).
 
-➡️ Next: the **WebSocket** feed applying live deltas to the Query cache (two
-browsers in sync), then the members UI.
+## Live updates (5d)
+
+- **`useBoardLiveUpdates(boardId)`** opens `WS /ws/boards/{id}?token=…` (token as a
+  query param, since the browser can't set an Auth header on a WS handshake). On
+  **any** event it invalidates `['board', id]` so the board refetches. The socket
+  closes on unmount.
+- Net effect: when *anyone* changes the board, every open viewer updates within a
+  moment — no refresh.
+
+Verified in a browser: a card created by a **separate** API client appeared in the
+open board live, with no manual refresh.
+
+➡️ Next: the **members UI** (invite by email), then the optional **LLM board
+summarizer**.

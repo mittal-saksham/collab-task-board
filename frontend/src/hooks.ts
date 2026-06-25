@@ -5,8 +5,10 @@
 //
 // queryKey is how Query identifies a cache entry: ['board', 5] is "board #5".
 
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as api from './lib/boards'
+import { WS_BASE, getToken } from './lib/api'
 
 // --- Boards list ---
 export function useBoards() {
@@ -35,6 +37,24 @@ export function useBoard(boardId: number) {
     queryKey: ['board', boardId],
     queryFn: () => api.getBoard(boardId),
   })
+}
+
+// Subscribe to a board's WebSocket feed. Any event (card.moved, list.created,
+// member.added, ...) just invalidates this board's query so it refetches — the
+// simplest way to stay live. (A fancier version would patch the cache per event.)
+export function useBoardLiveUpdates(boardId: number) {
+  const qc = useQueryClient()
+  useEffect(() => {
+    const token = getToken()
+    if (!token || !boardId) return
+
+    const ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?token=${token}`)
+    ws.onmessage = () => {
+      qc.invalidateQueries({ queryKey: ['board', boardId] })
+    }
+    // Close the socket when leaving the board / unmounting.
+    return () => ws.close()
+  }, [boardId, qc])
 }
 
 // All the mutations that change a board's contents share one invalidation:

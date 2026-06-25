@@ -13,7 +13,7 @@ import {
 import { AppHeader } from '../components/AppHeader'
 import { Column } from '../components/Column'
 import { CardItem } from '../components/CardItem'
-import { useBoard, useBoardMutations } from '../hooks'
+import { useBoard, useBoardLiveUpdates, useBoardMutations } from '../hooks'
 import type { Card, List } from '../types'
 
 // dnd-kit ids look like "card-12" / "list-3"; pull the numeric id back out.
@@ -23,6 +23,7 @@ export function BoardPage() {
   const { boardId } = useParams()
   const id = Number(boardId)
   const { data: board, isLoading, error } = useBoard(id)
+  useBoardLiveUpdates(id) // live: refetch this board when anyone changes it
   const m = useBoardMutations(id)
   const [listTitle, setListTitle] = useState('')
 
