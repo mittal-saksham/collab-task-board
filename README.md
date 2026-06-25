@@ -1,0 +1,101 @@
+# Collab Task Board
+
+A collaborative, Trello/Linear-style task board — built as a learning + portfolio
+project to demonstrate real engineering: clean data modeling, JWT auth, real-time
+updates, and a layered API.
+
+**Stack:** FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · PostgreSQL (Docker)
+· JWT · WebSockets · React + TypeScript (frontend, planned).
+
+---
+
+## Status
+
+| Feature | Status |
+|---------|--------|
+| Backend skeleton + Postgres + health check | ✅ |
+| Data model (users, boards, memberships, lists, cards) + migration | ✅ |
+| Auth — signup, login, JWT, protected routes | ✅ |
+| Boards / Lists / Cards CRUD | ⏳ |
+| Drag-and-drop positioning | ⏳ |
+| Real-time sync (WebSockets) | ⏳ |
+| Membership / invites | ⏳ |
+| React + TypeScript frontend | ⏳ |
+
+---
+
+## Quickstart
+
+**Prerequisites:** Docker Desktop, Python 3.10+.
+
+```bash
+# 1. Start PostgreSQL (from the repo root). Reads .env automatically.
+cp .env.example .env        # first time only (the committed .env already has dev values)
+docker compose up -d
+
+# 2. Create the virtualenv and install backend deps
+python3 -m venv backend/.venv
+source backend/.venv/bin/activate
+pip install -r backend/requirements.txt
+
+# 3. Apply database migrations
+cd backend
+alembic upgrade head
+
+# 4. Run the API (hot-reload)
+uvicorn app.main:app --reload
+```
+
+Now open **http://127.0.0.1:8000/docs** — try `/auth/signup`, then click
+**Authorize** to log in and call `/auth/me`.
+
+> ℹ️ This project's Postgres is published on host port **5434** (not the default
+> 5432) to avoid a clash with another local Postgres. See
+> [`docs/CONCEPTS.md`](docs/CONCEPTS.md#localhost-binding-precedence-the-bug-we-hit).
+
+---
+
+## API (so far)
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| `POST` | `/auth/signup` | – | Create an account |
+| `POST` | `/auth/login` | – | Get a JWT (form: `username`=email, `password`) |
+| `GET`  | `/auth/me` | Bearer | The logged-in user |
+| `GET`  | `/health` | – | Liveness + DB connectivity |
+
+---
+
+## 📚 Documentation
+
+Written to be read cold and understood — start here:
+
+| Doc | What's inside |
+|-----|---------------|
+| [`docs/HLD.md`](docs/HLD.md) | **High-level design** — architecture, components, tech rationale, flows |
+| [`docs/LLD.md`](docs/LLD.md) | **Low-level design** — modules, schema, API contracts, sequence diagrams, algorithms |
+| [`docs/01-data-model.md`](docs/01-data-model.md) | Entities, relationships, fractional ordering, migrations |
+| [`docs/02-auth.md`](docs/02-auth.md) | Signup/login/JWT flow, bcrypt, OAuth2, protecting routes |
+| [`docs/CONCEPTS.md`](docs/CONCEPTS.md) | Plain-English glossary of every concept used (grows each batch) |
+
+---
+
+## Repo structure
+
+```
+.
+├── docker-compose.yml      # Postgres for local dev
+├── .env / .env.example     # config (.env is gitignored)
+├── docs/                   # HLD, LLD, concept + feature docs
+└── backend/
+    ├── app/
+    │   ├── main.py         # FastAPI app + health
+    │   ├── core/           # config + security (JWT/bcrypt)
+    │   ├── db/             # engine, session, Base
+    │   ├── models/         # SQLAlchemy ORM models
+    │   ├── schemas/        # Pydantic request/response models
+    │   ├── crud/           # data-access layer
+    │   └── api/            # routers + dependencies
+    ├── alembic/            # migrations
+    └── requirements.txt
+```

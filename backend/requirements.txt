@@ -1,0 +1,20 @@
+# Direct dependencies, pinned to exact versions for reproducibility:
+# clone the repo, `pip install -r requirements.txt`, get the same versions.
+
+# --- Web framework & server ---
+fastapi==0.138.0
+uvicorn[standard]==0.49.0
+
+# --- Database: ORM + driver + migrations ---
+sqlalchemy==2.0.51
+psycopg[binary]==3.3.4
+alembic==1.18.4
+
+# --- Config & validation ---
+pydantic-settings==2.14.2
+email-validator==2.3.0
+
+# --- Auth ---
+pyjwt==2.13.0
+bcrypt==5.0.0
+python-multipart==0.0.32

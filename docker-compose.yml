@@ -1,0 +1,27 @@
+# Spins up Postgres for local development.
+# Compose automatically reads the ".env" file sitting next to this file,
+# so ${POSTGRES_USER} etc. below are filled in from there.
+
+services:
+  db:
+    image: postgres:16
+    container_name: taskapp_db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      # host_port:container_port -> lets our locally-run backend reach Postgres
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      # Named volume = your data survives `docker compose down` / restarts.
+      - taskapp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Compose can wait for this to pass before reporting the DB "healthy".
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  taskapp_pgdata:
