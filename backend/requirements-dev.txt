@@ -1,0 +1,7 @@
+# Test/dev-only dependencies (kept separate from prod requirements.txt).
+# Install with:  pip install -r requirements-dev.txt
+-r requirements.txt
+
+pytest==8.3.4
+# httpx powers FastAPI's TestClient — used by the (future) DB-backed API tests.
+httpx==0.28.1
