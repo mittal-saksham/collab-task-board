@@ -71,7 +71,7 @@ flowchart TB
         CRUD["CRUD / data-access layer ✅(users)"]
         Models["SQLAlchemy models ✅"]
         Security["Security (bcrypt + JWT) ✅"]
-        WSHub["WebSocket ConnectionManager ⏳"]
+        WSHub["WebSocket ConnectionManager ✅"]
         Schemas["Pydantic schemas ✅(auth)"]
     end
 
@@ -105,7 +105,7 @@ only talks to the one below it. This keeps routes thin and DB logic testable.
 | Driver | **psycopg 3** | Speaks sync *and* async → no driver swap later |
 | DB | **PostgreSQL 16 (Docker)** | Relational integrity; zero local install |
 | Auth | **JWT (HS256) + bcrypt** | Stateless auth; one-way password hashing |
-| Real-time | **WebSockets (native FastAPI)** ⏳ | Server push for live boards |
+| Real-time | **WebSockets (native FastAPI)** ✅ | Server push for live boards |
 | Frontend | **React + TypeScript + Vite** ⏳ | Modern standard; type safety |
 
 **Deliberate "start simple" calls:** sync SQLAlchemy first (switch to async
@@ -127,7 +127,7 @@ Browser → HTTPS request (+ Bearer token)
         ← JSON
 ```
 
-### 5b. Real-time sync (⏳ planned)
+### 5b. Real-time sync (✅)
 ```
 User A moves a card  → REST PATCH /cards/{id}/move
                      → persist new position in Postgres
@@ -212,6 +212,7 @@ because the MVP implements them:
 ✅ Data model (5 tables) + Alembic migration
 ✅ Auth (signup, login, JWT, protected route)
 ✅ Boards · Lists · Cards CRUD + fractional positioning (drag-and-drop persistence)
-🟡 Real-time sync via WebSockets (next)
-⏳ Membership / invites → React + TypeScript frontend
+✅ Real-time sync via WebSockets (live board updates + delta events)
+🟡 Membership / invites (next)
+⏳ React + TypeScript frontend
 ⏳ Stretch: optimistic UI, activity log, LLM summarize, live deployment

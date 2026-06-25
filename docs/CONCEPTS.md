@@ -61,11 +61,18 @@ SDE reviewer might probe.
    - [flush() vs commit() (atomic writes)](#flush-vs-commit-atomic-writes)
    - [SQL JOIN in SQLAlchemy](#sql-join-in-sqlalchemy)
    - [Nested response models](#nested-response-models)
+9. [Real-time / WebSockets (Batch 3)](#9-real-time--websockets-batch-3)
+   - [WebSocket](#websocket)
+   - [Connection rooms](#connection-rooms)
+   - [Sync → async bridge](#sync--async-bridge)
+   - [Query-param WebSocket auth](#query-param-websocket-auth)
+   - [Delta events vs snapshots](#delta-events-vs-snapshots)
+   - [Lifespan (startup/shutdown)](#lifespan-startupshutdown)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
-> [`02-auth.md`](02-auth.md), and
-> [`03-boards-lists-cards.md`](03-boards-lists-cards.md). This glossary is the
-> quick lookup.
+> [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
+> and [`04-realtime-websockets.md`](04-realtime-websockets.md). This glossary is
+> the quick lookup.
 
 ---
 
@@ -732,5 +739,68 @@ render — while still stripping any undeclared fields at every level.
 
 ---
 
-*Last updated: after Batch 2 (boards, lists, cards + positioning). New concepts
-are appended here as we build.*
+## 9. Real-time / WebSockets (Batch 3)
+
+### WebSocket
+
+**Plain English:** A persistent two-way connection between browser and server.
+Unlike HTTP (ask → answer → done), it stays open so the **server can push**
+messages anytime — the basis of live updates.
+
+---
+
+### Connection rooms
+
+**Plain English:** Grouping open connections by what they care about. We keep a
+`board_id -> set of sockets` map (`ConnectionManager`), so a change to board 5 is
+broadcast only to sockets watching board 5, not everyone.
+
+---
+
+### Sync → async bridge
+
+**Plain English:** Our REST routes run synchronously (threadpool); WebSockets run
+on the asyncio event loop. To push from sync code we schedule the async send onto
+the loop with `asyncio.run_coroutine_threadsafe(coro, loop)` (the loop is captured
+at startup). This is the canonical "send to a socket from sync code" answer.
+
+---
+
+### Query-param WebSocket auth
+
+**Plain English:** Browsers can't set an `Authorization` header on a WS handshake,
+so the client passes the JWT as `?token=...`. We validate it (and board access)
+**before** accepting the socket; invalid → close with code 1008.
+
+**Interview angle:** name the tradeoff — query tokens can land in logs; mitigations
+are first-message auth or short-lived socket "tickets."
+
+---
+
+### Delta events vs snapshots
+
+**Plain English:** Three ways to tell clients what changed: send a small **delta**
+(`{type:"card.moved", ...}`), send a "something changed, refetch" **signal**, or
+send the **whole board** every time. We use granular deltas — efficient, and the
+client updates just the affected card.
+
+---
+
+### Lifespan (startup/shutdown)
+
+**Plain English:** FastAPI's `lifespan` async context manager runs setup code
+before the app serves requests and teardown after. We use it to capture the
+running event loop for the sync→async bridge.
+
+```python
+@asynccontextmanager
+async def lifespan(app):
+    manager.set_loop(asyncio.get_running_loop())  # startup
+    yield                                          # app runs
+    # shutdown cleanup would go here
+```
+
+---
+
+*Last updated: after Batch 3 (real-time WebSockets). New concepts are appended
+here as we build.*

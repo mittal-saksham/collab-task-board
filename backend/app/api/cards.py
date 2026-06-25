@@ -1,4 +1,9 @@
-"""Card routes: create under a list, edit, delete, and move (drag-and-drop)."""
+"""Card routes: create under a list, edit, delete, and move (drag-and-drop).
+
+Each mutation broadcasts a delta event to the board's WebSocket watchers. Card
+events carry the board_id so the manager knows which room to push to (cards only
+store list_id, so we resolve the board via the card's list).
+"""
 
 from typing import Annotated
 
@@ -11,6 +16,18 @@ from app.crud import card as card_crud
 from app.crud import list as list_crud
 from app.db.session import get_db
 from app.schemas.card import CardCreate, CardMove, CardRead, CardUpdate
+from app.ws.manager import emit
+
+
+def _payload(card) -> dict:
+    """Serialize a Card ORM object to a JSON-able dict for an event."""
+    return CardRead.model_validate(card).model_dump(mode="json")
+
+
+def _board_id_of(db: Session, card) -> int:
+    """Resolve the board a card belongs to (via its list)."""
+    return list_crud.get_list(db, card.list_id).board_id
+
 
 router = APIRouter(tags=["cards"])
 
@@ -25,10 +42,12 @@ DbSession = Annotated[Session, Depends(get_db)]
 def create_card(
     list_id: int, payload: CardCreate, current_user: CurrentUser, db: DbSession
 ):
-    access.require_list_access(db, list_id, current_user.id)
-    return card_crud.create_card(
+    lst = access.require_list_access(db, list_id, current_user.id)
+    card = card_crud.create_card(
         db, list_id=list_id, title=payload.title, description=payload.description
     )
+    emit(lst.board_id, "card.created", _payload(card))
+    return card
 
 
 @router.patch("/cards/{card_id}", response_model=CardRead)
@@ -36,15 +55,20 @@ def update_card(
     card_id: int, payload: CardUpdate, current_user: CurrentUser, db: DbSession
 ):
     card = access.require_card_access(db, card_id, current_user.id)
-    return card_crud.update_card(
+    card = card_crud.update_card(
         db, card, title=payload.title, description=payload.description
     )
+    emit(_board_id_of(db, card), "card.updated", _payload(card))
+    return card
 
 
 @router.delete("/cards/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_card(card_id: int, current_user: CurrentUser, db: DbSession):
     card = access.require_card_access(db, card_id, current_user.id)
+    board_id = _board_id_of(db, card)  # capture before deletion
+    list_id = card.list_id
     card_crud.delete_card(db, card)
+    emit(board_id, "card.deleted", {"id": card_id, "list_id": list_id})
 
 
 @router.patch("/cards/{card_id}/move", response_model=CardRead)
@@ -75,6 +99,8 @@ def move_card(
                 status.HTTP_400_BAD_REQUEST, detail="Cannot place a card after itself"
             )
 
-    return card_crud.move_card(
+    card = card_crud.move_card(
         db, card, target_list_id=payload.list_id, after_id=payload.after_id
     )
+    emit(target_list.board_id, "card.moved", _payload(card))
+    return card

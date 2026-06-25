@@ -18,7 +18,7 @@ updates, and a layered API.
 | Auth — signup, login, JWT, protected routes | ✅ |
 | Boards / Lists / Cards CRUD | ✅ |
 | Drag-and-drop positioning (fractional, persisted) | ✅ |
-| Real-time sync (WebSockets) | ⏳ |
+| Real-time sync (WebSockets) | ✅ |
 | Membership / invites | ⏳ |
 | React + TypeScript frontend | ⏳ |
 

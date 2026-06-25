@@ -2,6 +2,7 @@
 
 Every route requires a logged-in user (`CurrentUser`). Viewing/editing is gated
 by board membership; editing/deleting additionally requires being the owner.
+Mutations broadcast an event to anyone watching the board over WebSocket.
 """
 
 from typing import Annotated
@@ -13,6 +14,7 @@ from app.api.deps import CurrentUser
 from app.crud import board as board_crud
 from app.db.session import get_db
 from app.schemas.board import BoardCreate, BoardDetail, BoardRead, BoardUpdate
+from app.ws.manager import emit
 
 router = APIRouter(prefix="/boards", tags=["boards"])
 
@@ -52,7 +54,9 @@ def update_board(
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, detail="Only the board owner can edit it"
         )
-    return board_crud.update_board(db, board, title=payload.title)
+    board = board_crud.update_board(db, board, title=payload.title)
+    emit(board.id, "board.updated", BoardRead.model_validate(board).model_dump(mode="json"))
+    return board
 
 
 @router.delete("/{board_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -66,3 +70,4 @@ def delete_board(board_id: int, current_user: CurrentUser, db: DbSession):
             status.HTTP_403_FORBIDDEN, detail="Only the board owner can delete it"
         )
     board_crud.delete_board(db, board)
+    emit(board_id, "board.deleted", {"id": board_id})

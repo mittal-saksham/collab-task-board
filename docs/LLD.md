@@ -26,10 +26,10 @@ backend/app/
 │   ├── user.py  token.py  board.py  list.py  card.py
 ├── crud/              ✅ data-access functions
 │   ├── user.py  board.py  list.py  card.py  ordering.py
-├── api/               ✅ routers + shared deps  (ws.py ⏳)
-│   ├── deps.py  access.py
+├── api/               ✅ routers + shared deps
+│   ├── deps.py  access.py  ws.py
 │   └── auth.py  boards.py  lists.py  cards.py
-└── ws/                ⏳ WebSocket ConnectionManager
+└── ws/                ✅ ConnectionManager + emit() (manager.py)
 ```
 
 **Dependency direction (never upward):**
@@ -203,7 +203,7 @@ sequenceDiagram
     H-->>C: 200 UserRead
 ```
 
-### 5d. Move a card + live broadcast ⏳
+### 5d. Move a card + live broadcast ✅
 ```mermaid
 sequenceDiagram
     participant A as User A
