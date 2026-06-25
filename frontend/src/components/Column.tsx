@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react'
+import { useDroppable } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { List } from '../types'
-import { CardItem } from './CardItem'
+import { SortableCard } from './SortableCard'
 
 interface Props {
   list: List
@@ -9,10 +11,12 @@ interface Props {
   onDeleteList: () => void
 }
 
-// One board column: its title, its cards (already ordered by the backend), and
-// an inline "add a card" input.
+// One board column. It's a droppable area (so you can drop onto an empty column)
+// and wraps its cards in a SortableContext so they can be reordered by dragging.
 export function Column({ list, onAddCard, onDeleteCard, onDeleteList }: Props) {
+  const { setNodeRef } = useDroppable({ id: `list-${list.id}` })
   const [title, setTitle] = useState('')
+  const cardIds = list.cards.map((c) => `card-${c.id}`)
 
   function submit(e: FormEvent) {
     e.preventDefault()
@@ -35,11 +39,14 @@ export function Column({ list, onAddCard, onDeleteCard, onDeleteList }: Props) {
         </button>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {list.cards.map((c) => (
-          <CardItem key={c.id} card={c} onDelete={() => onDeleteCard(c.id)} />
-        ))}
-      </div>
+      <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
+        {/* min-height keeps an empty column droppable */}
+        <div ref={setNodeRef} className="flex min-h-2 flex-col gap-2">
+          {list.cards.map((c) => (
+            <SortableCard key={c.id} card={c} onDelete={() => onDeleteCard(c.id)} />
+          ))}
+        </div>
+      </SortableContext>
 
       <form onSubmit={submit} className="mt-2">
         <input

@@ -1,16 +1,101 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
 import { AppHeader } from '../components/AppHeader'
 import { Column } from '../components/Column'
+import { CardItem } from '../components/CardItem'
 import { useBoard, useBoardMutations } from '../hooks'
+import type { Card, List } from '../types'
 
-// A single board: its columns (lists) laid out left-to-right, each with its cards.
+// dnd-kit ids look like "card-12" / "list-3"; pull the numeric id back out.
+const numId = (prefixed: string) => Number(prefixed.split('-')[1])
+
 export function BoardPage() {
   const { boardId } = useParams()
   const id = Number(boardId)
   const { data: board, isLoading, error } = useBoard(id)
   const m = useBoardMutations(id)
   const [listTitle, setListTitle] = useState('')
+
+  // Local mirror of the lists so a drag can update the UI instantly. It re-syncs
+  // whenever the server data changes (initial load + after a move refetch).
+  const [lists, setLists] = useState<List[]>([])
+  useEffect(() => {
+    if (board) setLists(board.lists)
+  }, [board])
+
+  const [activeCard, setActiveCard] = useState<Card | null>(null)
+  // Require a 5px drag before activating, so plain clicks (e.g. the × button) work.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  )
+
+  function findCard(cardId: number): { card: Card; list: List } | null {
+    for (const l of lists) {
+      const card = l.cards.find((c) => c.id === cardId)
+      if (card) return { card, list: l }
+    }
+    return null
+  }
+
+  function onDragStart(e: DragStartEvent) {
+    setActiveCard(findCard(numId(String(e.active.id)))?.card ?? null)
+  }
+
+  function onDragEnd(e: DragEndEvent) {
+    setActiveCard(null)
+    const { active, over } = e
+    if (!over) return
+
+    const activeId = numId(String(active.id))
+    const source = findCard(activeId)
+    if (!source) return
+
+    // Resolve the target list and the card we dropped onto (if any).
+    const overId = String(over.id)
+    let targetList: List | undefined
+    let overCardId: number | null = null
+    if (overId.startsWith('list-')) {
+      targetList = lists.find((l) => l.id === numId(overId)) // dropped on a column
+    } else {
+      const overCard = findCard(numId(overId))
+      targetList = overCard?.list
+      overCardId = overCard?.card.id ?? null
+    }
+    if (!targetList) return
+
+    // Target list's cards without the dragged one; find where to insert.
+    const targetCards = targetList.cards.filter((c) => c.id !== activeId)
+    let index = targetCards.length // default: end (dropped on the column body)
+    if (overCardId !== null) {
+      const i = targetCards.findIndex((c) => c.id === overCardId)
+      if (i !== -1) index = i // insert BEFORE the card we dropped on
+    }
+    // The backend wants "place after this card id" (null = front).
+    const afterId = index > 0 ? targetCards[index - 1].id : null
+
+    // Optimistic local move so the UI updates immediately...
+    setLists((prev) => {
+      const next = prev.map((l) => ({
+        ...l,
+        cards: l.cards.filter((c) => c.id !== activeId),
+      }))
+      const moved: Card = { ...source.card, list_id: targetList.id }
+      next.find((l) => l.id === targetList.id)!.cards.splice(index, 0, moved)
+      return next
+    })
+    // ...then persist; on success the board query refetches and re-syncs.
+    m.moveCard.mutate({ id: activeId, listId: targetList.id, afterId })
+  }
 
   function addList(e: FormEvent) {
     e.preventDefault()
@@ -31,26 +116,38 @@ export function BoardPage() {
         {error && <p className="text-red-600">Couldn't load this board.</p>}
 
         {board && (
-          <div className="flex items-start gap-3">
-            {board.lists.map((list) => (
-              <Column
-                key={list.id}
-                list={list}
-                onAddCard={(title) => m.createCard.mutate({ listId: list.id, title })}
-                onDeleteCard={(cardId) => m.deleteCard.mutate(cardId)}
-                onDeleteList={() => m.deleteList.mutate(list.id)}
-              />
-            ))}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={onDragStart}
+            onDragEnd={onDragEnd}
+          >
+            <div className="flex items-start gap-3">
+              {lists.map((list) => (
+                <Column
+                  key={list.id}
+                  list={list}
+                  onAddCard={(title) => m.createCard.mutate({ listId: list.id, title })}
+                  onDeleteCard={(cardId) => m.deleteCard.mutate(cardId)}
+                  onDeleteList={() => m.deleteList.mutate(list.id)}
+                />
+              ))}
 
-            <form onSubmit={addList} className="w-72 flex-shrink-0">
-              <input
-                value={listTitle}
-                onChange={(e) => setListTitle(e.target.value)}
-                placeholder="+ Add a list"
-                className="w-full rounded-lg border border-dashed border-slate-300 bg-white/50 px-3 py-2 text-sm placeholder-slate-400 outline-none focus:border-indigo-400"
-              />
-            </form>
-          </div>
+              <form onSubmit={addList} className="w-72 flex-shrink-0">
+                <input
+                  value={listTitle}
+                  onChange={(e) => setListTitle(e.target.value)}
+                  placeholder="+ Add a list"
+                  className="w-full rounded-lg border border-dashed border-slate-300 bg-white/50 px-3 py-2 text-sm placeholder-slate-400 outline-none focus:border-indigo-400"
+                />
+              </form>
+            </div>
+
+            {/* What you see floating under the cursor while dragging. */}
+            <DragOverlay>
+              {activeCard ? <CardItem card={activeCard} onDelete={() => {}} /> : null}
+            </DragOverlay>
+          </DndContext>
         )}
       </main>
     </div>

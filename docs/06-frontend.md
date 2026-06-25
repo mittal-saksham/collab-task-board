@@ -4,8 +4,8 @@ The web client that consumes the API and the live WebSocket feed. This doc cover
 the overall setup and the **auth foundation** (sub-batch 5a); board UI and
 drag-and-drop are added in the following sub-batches.
 
-> Status: 🟡 in progress. ✅ scaffold + auth + routing + board list/view (CRUD) ·
-> ⏳ drag-and-drop, live updates, members UI.
+> Status: 🟡 in progress. ✅ scaffold + auth + routing + board UI + drag-and-drop ·
+> ⏳ live updates, members UI.
 
 ---
 
@@ -115,5 +115,21 @@ npm run dev      # http://localhost:5173
 Verified in a browser: create board → open → add list → add card all render via
 Query refetch.
 
-➡️ Next: **@dnd-kit** drag-and-drop wired to `PATCH /cards/{id}/move`, then the
-**WebSocket** feed applying live deltas to the Query cache, then the members UI.
+## Drag-and-drop (5c)
+
+- **@dnd-kit**: each card is a `useSortable` (`SortableCard`), each column a
+  `useDroppable` wrapping a `SortableContext`. A `PointerSensor` with a 5px
+  activation distance keeps plain clicks (the × button) working.
+- On **`onDragEnd`** we figure out the target list and the card dropped onto,
+  compute **`after_id`** (the card to sit behind, or `null` for the front), update
+  local state **optimistically**, then call `PATCH /cards/{id}/move`. The board
+  query refetches on success and re-syncs.
+
+  > 🧠 The frontend computes *where* (target list + `after_id`); the backend
+  > computes the actual float **position** (midpoint). Clean split of concerns.
+
+Verified in a browser: dragging a card `To Do → Doing` moved it and **persisted**
+(confirmed via the API).
+
+➡️ Next: the **WebSocket** feed applying live deltas to the Query cache (two
+browsers in sync), then the members UI.
