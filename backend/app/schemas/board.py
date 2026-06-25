@@ -35,3 +35,9 @@ class BoardDetail(BoardRead):
     """
 
     lists: list[ListWithCards] = []
+
+
+class BoardSummary(BaseModel):
+    """Response for the optional 'summarize board' endpoint."""
+
+    summary: str

@@ -214,5 +214,6 @@ because the MVP implements them:
 ✅ Boards · Lists · Cards CRUD + fractional positioning (drag-and-drop persistence)
 ✅ Real-time sync via WebSockets (live board updates + delta events)
 ✅ Membership / invites (invite existing users by email) — **backend MVP complete**
-🟡 React + TypeScript frontend — ✅ scaffold + auth + routing · ⏳ board UI, DnD, live updates
-⏳ Stretch: optimistic UI, activity log, LLM summarize, live deployment
+✅ React + TypeScript frontend (auth, board UI, drag-and-drop, live updates, members)
+✅ Stretch: optional LLM "summarize board" (Claude)
+⏳ Stretch (not built): optimistic UI, activity log, live deployment

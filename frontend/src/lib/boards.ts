@@ -41,6 +41,10 @@ export const moveCard = (id: number, listId: number, afterId: number | null) =>
     body: JSON.stringify({ list_id: listId, after_id: afterId }),
   })
 
+// --- Optional: LLM summary ---
+export const summarizeBoard = (boardId: number) =>
+  apiFetch<{ summary: string }>(`/boards/${boardId}/summarize`, { method: 'POST' })
+
 // --- Members ---
 export const getMembers = (boardId: number) =>
   apiFetch<Member[]>(`/boards/${boardId}/members`)

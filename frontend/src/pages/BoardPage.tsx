@@ -14,7 +14,12 @@ import { AppHeader } from '../components/AppHeader'
 import { Column } from '../components/Column'
 import { CardItem } from '../components/CardItem'
 import { MembersPanel } from '../components/MembersPanel'
-import { useBoard, useBoardLiveUpdates, useBoardMutations } from '../hooks'
+import {
+  useBoard,
+  useBoardLiveUpdates,
+  useBoardMutations,
+  useSummarizeBoard,
+} from '../hooks'
 import type { Card, List } from '../types'
 
 // dnd-kit ids look like "card-12" / "list-3"; pull the numeric id back out.
@@ -36,6 +41,8 @@ export function BoardPage() {
   }, [board])
 
   const [showMembers, setShowMembers] = useState(false)
+  const [summaryOpen, setSummaryOpen] = useState(false)
+  const summarize = useSummarizeBoard(id)
   const [activeCard, setActiveCard] = useState<Card | null>(null)
   // Require a 5px drag before activating, so plain clicks (e.g. the × button) work.
   const sensors = useSensors(
@@ -129,6 +136,16 @@ export function BoardPage() {
                 />
               )}
             </div>
+            <button
+              onClick={() => {
+                setSummaryOpen(true)
+                summarize.mutate()
+              }}
+              disabled={summarize.isPending}
+              className="rounded-md border border-indigo-300 bg-indigo-50 px-2 py-1 text-xs text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+            >
+              {summarize.isPending ? 'Summarizing…' : '✨ Summarize'}
+            </button>
           </>
         )}
       </AppHeader>
@@ -172,6 +189,43 @@ export function BoardPage() {
           </DndContext>
         )}
       </main>
+
+      {summaryOpen && (
+        <div
+          className="fixed inset-0 z-20 flex items-center justify-center bg-black/30 p-4"
+          onClick={() => setSummaryOpen(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-800">Board summary</h3>
+              <button
+                onClick={() => setSummaryOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                ×
+              </button>
+            </div>
+            {summarize.isPending && (
+              <p className="text-slate-500">Generating summary…</p>
+            )}
+            {summarize.isError && (
+              <p className="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
+                {summarize.error instanceof Error
+                  ? summarize.error.message
+                  : 'Failed to summarize.'}
+              </p>
+            )}
+            {summarize.data && (
+              <p className="whitespace-pre-wrap text-sm text-slate-700">
+                {summarize.data.summary}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

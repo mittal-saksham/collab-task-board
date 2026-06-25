@@ -71,6 +71,10 @@ SDE reviewer might probe.
 10. [Membership & Invites (Batch 4)](#10-membership--invites-batch-4)
     - [Owner-only authorization](#owner-only-authorization)
     - [Invite an existing user by email](#invite-an-existing-user-by-email)
+11. [LLM Summarizer (Batch 6)](#11-llm-summarizer-batch-6)
+    - [LLM API call (single request)](#llm-api-call-single-request)
+    - [Optional, isolated feature (config flag)](#optional-isolated-feature-config-flag)
+    - [Graceful degradation](#graceful-degradation)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -831,5 +835,39 @@ WebSocket feed — no per-resource permission wiring.
 
 ---
 
-*Last updated: after Batch 4 (membership & invites) — backend MVP complete. New
-concepts are appended here as we build.*
+## 11. LLM Summarizer (Batch 6)
+
+### LLM API call (single request)
+
+**Plain English:** The simplest way to use an LLM — one request, one response.
+We send a **system** prompt (the model's role + instructions) and a **user**
+message (the data), and read the text back. No tools, no loop.
+
+**In our code:** `anthropic.Anthropic().messages.create(model, system, messages)`
+with the board flattened to text as the user message. Default model is the most
+capable Claude (`claude-opus-4-8`); configurable via `SUMMARIZER_MODEL`.
+
+---
+
+### Optional, isolated feature (config flag)
+
+**Plain English:** A capability gated by an env var, kept in its own module so it
+can be turned on/off without touching core code. All LLM code lives in
+`app/services/llm.py`; the rest of the app never imports the Anthropic SDK.
+
+**Why it matters:** Optional integrations (especially paid ones) shouldn't be
+load-bearing. If the key is absent, the app runs exactly as before.
+
+---
+
+### Graceful degradation
+
+**Plain English:** When an optional dependency is missing or fails, return a clear
+error instead of crashing. No `ANTHROPIC_API_KEY` → `503` with
+"Set ANTHROPIC_API_KEY to enable it." LLM call fails → `502`. The frontend shows
+that message in the summary modal.
+
+---
+
+*Last updated: after Batch 6 (LLM summarizer) — MVP + the optional AI feature
+complete. New concepts are appended here as we build.*

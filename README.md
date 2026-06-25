@@ -20,7 +20,8 @@ updates, and a layered API.
 | Drag-and-drop positioning (fractional, persisted) | ✅ |
 | Real-time sync (WebSockets) | ✅ |
 | Membership / invites | ✅ |
-| React + TypeScript frontend | 🟡 auth + routing done |
+| React + TypeScript frontend | ✅ |
+| LLM "summarize board" (optional) | ✅ |
 
 ---
 
@@ -79,6 +80,8 @@ override with `VITE_API_URL` if needed.)
 | `POST` | `/boards/{id}/lists` | Bearer | Add a column |
 | `POST` | `/lists/{id}/cards` | Bearer | Add a card |
 | `PATCH`| `/cards/{id}/move` | Bearer | Move/reorder a card (drag-and-drop) |
+| `POST` | `/boards/{id}/members` | Bearer | Invite a user by email (owner only) |
+| `POST` | `/boards/{id}/summarize` | Bearer | AI board summary (optional; needs `ANTHROPIC_API_KEY`) |
 | `GET`  | `/health` | – | Liveness + DB connectivity |
 
 > Full endpoint list with request/response detail: [`docs/LLD.md`](docs/LLD.md#4-api-reference).
@@ -93,7 +96,7 @@ Written to be read cold and understood — start here:
 |-----|---------------|
 | [`docs/HLD.md`](docs/HLD.md) | **High-level design** — architecture, components, tech rationale, flows |
 | [`docs/LLD.md`](docs/LLD.md) | **Low-level design** — modules, schema, API contracts, sequence diagrams, algorithms |
-| [`docs/01`–`06`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend |
+| [`docs/01`–`07`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer |
 | [`docs/CONCEPTS.md`](docs/CONCEPTS.md) | Plain-English glossary of every concept used (grows each batch) |
 
 ---

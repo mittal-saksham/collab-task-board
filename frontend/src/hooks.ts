@@ -59,6 +59,11 @@ export function useBoardLiveUpdates(boardId: number) {
   }, [boardId, qc])
 }
 
+// --- Optional: LLM summary (no cache; returns the summary text) ---
+export function useSummarizeBoard(boardId: number) {
+  return useMutation({ mutationFn: () => api.summarizeBoard(boardId) })
+}
+
 // --- Members ---
 export function useMembers(boardId: number) {
   return useQuery({

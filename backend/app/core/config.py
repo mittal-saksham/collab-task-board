@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     jwt_algorithm: str = "HS256"
 
+    # --- Optional LLM summarizer ---
+    # Leave ANTHROPIC_API_KEY unset to disable the "Summarize board" feature.
+    anthropic_api_key: str | None = None
+    summarizer_model: str = "claude-opus-4-8"
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         env_file_encoding="utf-8",

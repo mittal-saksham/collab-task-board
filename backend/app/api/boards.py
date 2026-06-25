@@ -13,7 +13,14 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentUser
 from app.crud import board as board_crud
 from app.db.session import get_db
-from app.schemas.board import BoardCreate, BoardDetail, BoardRead, BoardUpdate
+from app.schemas.board import (
+    BoardCreate,
+    BoardDetail,
+    BoardRead,
+    BoardSummary,
+    BoardUpdate,
+)
+from app.services import llm
 from app.ws.manager import emit
 
 router = APIRouter(prefix="/boards", tags=["boards"])
@@ -71,3 +78,27 @@ def delete_board(board_id: int, current_user: CurrentUser, db: DbSession):
         )
     board_crud.delete_board(db, board)
     emit(board_id, "board.deleted", {"id": board_id})
+
+
+@router.post("/{board_id}/summarize", response_model=BoardSummary)
+def summarize_board(board_id: int, current_user: CurrentUser, db: DbSession):
+    """Optional AI feature: a short LLM-written summary of the board.
+
+    Any board member can use it. Returns 503 if the summarizer isn't configured
+    (no ANTHROPIC_API_KEY), 502 if the LLM request fails.
+    """
+    board = board_crud.get_board_for_member(db, board_id, current_user.id)
+    if board is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Board not found")
+    try:
+        summary = llm.summarize_board(board)
+    except llm.SummarizerNotConfigured:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Summarizer is not configured. Set ANTHROPIC_API_KEY to enable it.",
+        )
+    except llm.SummarizerError as exc:
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, detail=f"LLM request failed: {exc}"
+        )
+    return BoardSummary(summary=summary)
