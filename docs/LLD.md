@@ -23,12 +23,12 @@ backend/app/
 │   ├── user.py  board.py  membership.py  list.py  card.py
 │   └── __init__.py    ✅ imports all models (registry + Alembic)
 ├── schemas/           ✅ Pydantic request/response models
-│   ├── user.py  token.py  board.py  list.py  card.py
+│   ├── user.py  token.py  board.py  list.py  card.py  member.py
 ├── crud/              ✅ data-access functions
-│   ├── user.py  board.py  list.py  card.py  ordering.py
+│   ├── user.py  board.py  list.py  card.py  membership.py  ordering.py
 ├── api/               ✅ routers + shared deps
 │   ├── deps.py  access.py  ws.py
-│   └── auth.py  boards.py  lists.py  cards.py
+│   └── auth.py  boards.py  lists.py  cards.py  members.py
 └── ws/                ✅ ConnectionManager + emit() (manager.py)
 ```
 
@@ -134,7 +134,7 @@ Schema is created/changed only via Alembic migrations (`backend/alembic/`).
 | `POST /auth/login` | – | form `username`,`password` | `200` `{access_token, token_type}` | `401` bad creds |
 | `GET /auth/me` | ✅ | – | `200` `UserRead` | `401` missing/invalid token |
 
-### Boards / Lists / Cards — ✅ built · Membership/invite & WS — ⏳ planned
+### Boards / Lists / Cards / Members / WS — ✅ all built
 | Method & path | Purpose | Notes |
 |---------------|---------|-------|
 | `POST /boards` | Create a board | also inserts owner membership |

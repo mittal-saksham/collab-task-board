@@ -68,6 +68,9 @@ SDE reviewer might probe.
    - [Query-param WebSocket auth](#query-param-websocket-auth)
    - [Delta events vs snapshots](#delta-events-vs-snapshots)
    - [Lifespan (startup/shutdown)](#lifespan-startupshutdown)
+10. [Membership & Invites (Batch 4)](#10-membership--invites-batch-4)
+    - [Owner-only authorization](#owner-only-authorization)
+    - [Invite an existing user by email](#invite-an-existing-user-by-email)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -802,5 +805,31 @@ async def lifespan(app):
 
 ---
 
-*Last updated: after Batch 3 (real-time WebSockets). New concepts are appended
-here as we build.*
+## 10. Membership & Invites (Batch 4)
+
+### Owner-only authorization
+
+**Plain English:** Some actions (invite/remove members, edit/delete board) are
+restricted to the board **owner**, not just any member. We enforce it with one
+helper, `require_board_owner`, which returns 404 if you can't see the board and
+403 if you can but aren't the owner.
+
+**Why it matters:** Centralizing the check keeps every owner-only route honest
+and consistent — no scattered `if user != owner` logic.
+
+---
+
+### Invite an existing user by email
+
+**Plain English:** To add a collaborator we look up an **existing** account by
+email and insert a `memberships` row. No emails/links/tokens — the simplest
+multi-user path.
+
+**The payoff:** because all access flows through the `boards⋈memberships` query,
+that new row instantly grants the user access to the board's lists, cards, and
+WebSocket feed — no per-resource permission wiring.
+
+---
+
+*Last updated: after Batch 4 (membership & invites) — backend MVP complete. New
+concepts are appended here as we build.*

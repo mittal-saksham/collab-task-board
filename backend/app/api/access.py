@@ -28,6 +28,20 @@ def require_board_member(db: Session, board_id: int, user_id: int) -> Board:
     return board
 
 
+def require_board_owner(db: Session, board_id: int, user_id: int) -> Board:
+    """Like require_board_member, but additionally requires being the OWNER.
+
+    404 if you can't see the board at all; 403 if you can see it but aren't the
+    owner (managing members is owner-only).
+    """
+    board = require_board_member(db, board_id, user_id)
+    if board.owner_id != user_id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, detail="Only the board owner can do this"
+        )
+    return board
+
+
 def require_list_access(db: Session, list_id: int, user_id: int) -> List:
     lst = list_crud.get_list(db, list_id)
     if lst is None or board_crud.get_board_for_member(db, lst.board_id, user_id) is None:

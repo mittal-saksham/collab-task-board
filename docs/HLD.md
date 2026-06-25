@@ -66,7 +66,7 @@ flowchart TB
     end
 
     subgraph BE["Backend — FastAPI"]
-        Routers["API routers<br/>auth ✅ · boards ✅ · lists ✅ · cards ✅ · membership ⏳"]
+        Routers["API routers<br/>auth ✅ · boards ✅ · lists ✅ · cards ✅ · members ✅"]
         Deps["Dependencies<br/>get_db ✅ · get_current_user ✅"]
         CRUD["CRUD / data-access layer ✅(users)"]
         Models["SQLAlchemy models ✅"]
@@ -213,6 +213,6 @@ because the MVP implements them:
 ✅ Auth (signup, login, JWT, protected route)
 ✅ Boards · Lists · Cards CRUD + fractional positioning (drag-and-drop persistence)
 ✅ Real-time sync via WebSockets (live board updates + delta events)
-🟡 Membership / invites (next)
-⏳ React + TypeScript frontend
+✅ Membership / invites (invite existing users by email) — **backend MVP complete**
+🟡 React + TypeScript frontend (next)
 ⏳ Stretch: optimistic UI, activity log, LLM summarize, live deployment

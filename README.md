@@ -19,7 +19,7 @@ updates, and a layered API.
 | Boards / Lists / Cards CRUD | ✅ |
 | Drag-and-drop positioning (fractional, persisted) | ✅ |
 | Real-time sync (WebSockets) | ✅ |
-| Membership / invites | ⏳ |
+| Membership / invites | ✅ |
 | React + TypeScript frontend | ⏳ |
 
 ---
