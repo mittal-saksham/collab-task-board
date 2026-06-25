@@ -99,6 +99,7 @@ Written to be read cold and understood — start here:
 
 | Doc | What's inside |
 |-----|---------------|
+| [`CLAUDE.md`](CLAUDE.md) | **Start here** — project handoff/context: status, how to run, structure, conventions, and the gotchas catalogue (auto-loaded by Claude Code) |
 | [`docs/HLD.md`](docs/HLD.md) | **High-level design** — architecture, components, tech rationale, flows |
 | [`docs/LLD.md`](docs/LLD.md) | **Low-level design** — modules, schema, API contracts, sequence diagrams, algorithms |
 | [`docs/01`–`11`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer, rich cards (G1), comments + activity (G2), issue types + points + WIP (G3), search/filter (G4) |
