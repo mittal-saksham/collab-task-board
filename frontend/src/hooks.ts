@@ -9,6 +9,7 @@ import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as api from './lib/boards'
 import { WS_BASE, getToken } from './lib/api'
+import type { BoardDetail } from './types'
 
 // --- Boards list ---
 export function useBoards() {
@@ -153,9 +154,37 @@ export function useBoardMutations(boardId: number) {
         api.createCard(v.listId, v.title),
       onSuccess: invalidate,
     }),
+    // OPTIMISTIC delete: remove the card from the cached board immediately, before
+    // the server responds, so it disappears instantly (no waiting on the round-trip
+    // — especially noticeable on a slow/cold-started server). The TanStack pattern:
+    //   onMutate  → cancel in-flight refetches, snapshot the cache, apply the change
+    //   onError   → roll back to the snapshot (the delete failed, restore the card)
+    //   onSettled → invalidate so we re-sync with the server's truth either way
     deleteCard: useMutation({
       mutationFn: (id: number) => api.deleteCard(id),
-      onSuccess: invalidate,
+      onMutate: async (id: number) => {
+        await qc.cancelQueries({ queryKey: ['board', boardId] })
+        const previous = qc.getQueryData<BoardDetail>(['board', boardId])
+        qc.setQueryData<BoardDetail>(['board', boardId], (old) =>
+          old
+            ? {
+                ...old,
+                lists: old.lists.map((l) => ({
+                  ...l,
+                  cards: l.cards.filter((c) => c.id !== id),
+                })),
+              }
+            : old,
+        )
+        return { previous } // becomes `context` in onError
+      },
+      onError: (_err, _id, context) => {
+        // Put the card back if the server rejected the delete.
+        if (context?.previous) {
+          qc.setQueryData(['board', boardId], context.previous)
+        }
+      },
+      onSettled: invalidate,
     }),
     moveCard: useMutation({
       mutationFn: (v: { id: number; listId: number; afterId: number | null }) =>
