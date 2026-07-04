@@ -1,4 +1,5 @@
 import type { Card } from '../types'
+import { initials } from '../lib/time'
 
 // Tailwind v4 only emits CSS for classes it can see as COMPLETE string literals
 // at build time. So we can't build a class like `bg-${color}-100` dynamically —
@@ -18,6 +19,10 @@ export const LABEL_STYLES: Record<string, string> = {
   pink: 'bg-pink-100 text-pink-700',
 }
 
+// The five priority levels, most-urgent first — mirrors the backend's Priority
+// Literal. Exported so the modal's select and the filter bar share one source.
+export const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest'] as const
+
 // Priority → a small colored dot. Order goes most-urgent (red) to least (slate).
 const PRIORITY_DOT: Record<string, string> = {
   highest: 'bg-red-500',
@@ -34,12 +39,6 @@ export const ISSUE_TYPE: Record<string, { label: string; cls: string; glyph: str
   task: { label: 'Task', cls: 'bg-sky-100 text-sky-700', glyph: '✓' },
   bug: { label: 'Bug', cls: 'bg-red-100 text-red-700', glyph: '●' },
   story: { label: 'Story', cls: 'bg-emerald-100 text-emerald-700', glyph: '◆' },
-}
-
-// First two letters of the email, e.g. "saksham@…" → "SA". A cheap stand-in for
-// an avatar image.
-function initials(email: string): string {
-  return email.slice(0, 2).toUpperCase()
 }
 
 // Turn an ISO date ("2026-07-01") into a short label + an overdue flag. We append
@@ -60,7 +59,10 @@ function formatDue(due: string): { label: string; overdue: boolean } {
 // the right with ml-auto).
 export function CardBadges({ card }: { card: Card }) {
   const due = card.due_date ? formatDue(card.due_date) : null
-  const it = ISSUE_TYPE[card.issue_type] ?? ISSUE_TYPE.task
+  // No fallback needed: the backend validates issue_type/priority as Literal
+  // enums, so every card carries a known value (unlike label colors, which the
+  // raw API accepts as any string — that map keeps its `?? slate` below).
+  const it = ISSUE_TYPE[card.issue_type]
 
   return (
     <>
@@ -90,9 +92,7 @@ export function CardBadges({ card }: { card: Card }) {
         {/* priority */}
         <span
           title={`Priority: ${card.priority}`}
-          className={`h-2 w-2 flex-shrink-0 rounded-full ${
-            PRIORITY_DOT[card.priority] ?? PRIORITY_DOT.medium
-          }`}
+          className={`h-2 w-2 flex-shrink-0 rounded-full ${PRIORITY_DOT[card.priority]}`}
         />
         {due && (
           <span

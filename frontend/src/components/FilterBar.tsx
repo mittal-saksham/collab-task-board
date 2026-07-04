@@ -1,8 +1,6 @@
 import { useLabels, useMembers } from '../hooks'
 import { EMPTY_FILTERS, filtersActive, type Filters } from '../lib/filters'
-import { ISSUE_TYPES } from './CardBadges'
-
-const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest']
+import { ISSUE_TYPES, PRIORITIES } from './CardBadges'
 
 const selectClass =
   'rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 outline-none focus:border-indigo-400'
