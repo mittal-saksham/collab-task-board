@@ -26,8 +26,9 @@ updates, and a layered API.
 | Comments + per-board activity log (G2) | ✅ |
 | Issue types + story points + display-only WIP limits (G3) | ✅ |
 | Search / filter bar — text, assignee, label, priority, type (G4) | ✅ |
-| Automated tests (pytest + vitest) + CI (GitHub Actions) | ✅ ordering math + rebalance, auth, board **and card** access-control, move/PATCH semantics (DB-backed), filter/time helpers — 40 backend + 20 frontend; CI also runs migrations + lint |
+| Automated tests (pytest + vitest) + CI (GitHub Actions) | ✅ ordering math + rebalance, auth, board **and card** access-control, move/PATCH semantics (DB-backed), filter/time helpers — 50 backend + 20 frontend; CI also runs migrations + lint |
 | Hardening pass — position rebalance, expired-token handling, optimistic move + rollback, WS auto-reconnect (`docs/12`) | ✅ |
+| Security & perf — rate limiting, login timing equalization, single-use WS tickets, N+1 eager loading (`docs/13`) | ✅ |
 
 ---
 
@@ -87,6 +88,7 @@ override with `VITE_API_URL` if needed.)
 | `POST` | `/lists/{id}/cards` | Bearer | Add a card |
 | `PATCH`| `/cards/{id}/move` | Bearer | Move/reorder a card (drag-and-drop) |
 | `POST` | `/boards/{id}/members` | Bearer | Invite a user by email (owner only) |
+| `POST` | `/auth/ws-ticket` | Bearer | Single-use ~60s ticket for the board WebSocket |
 | `POST` | `/boards/{id}/summarize` | Bearer | AI board summary (optional; needs `ANTHROPIC_API_KEY`) |
 | `GET`  | `/health` | – | Liveness + DB connectivity |
 
@@ -103,7 +105,7 @@ Written to be read cold and understood — start here:
 | [`CLAUDE.md`](CLAUDE.md) | **Start here** — project handoff/context: status, how to run, structure, conventions, and the gotchas catalogue (auto-loaded by Claude Code) |
 | [`docs/HLD.md`](docs/HLD.md) | **High-level design** — architecture, components, tech rationale, flows |
 | [`docs/LLD.md`](docs/LLD.md) | **Low-level design** — modules, schema, API contracts, sequence diagrams, algorithms |
-| [`docs/01`–`12`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer, rich cards (G1), comments + activity (G2), issue types + points + WIP (G3), search/filter (G4), review hardening fixes (12) |
+| [`docs/01`–`13`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer, rich cards (G1), comments + activity (G2), issue types + points + WIP (G3), search/filter (G4), review hardening fixes (12), security & perf (13) |
 | [`docs/CONCEPTS.md`](docs/CONCEPTS.md) | Plain-English glossary of every concept used (grows each batch) |
 
 ---

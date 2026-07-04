@@ -89,6 +89,12 @@ def client(_engine):
             conn.execute(
                 sa.text(f"TRUNCATE {_ALL_TABLES} RESTART IDENTITY CASCADE")
             )
+        # Rate limiters are in-memory and keyed by client IP — and every test
+        # request comes from the same "testclient" IP, so without a reset the
+        # auth fixture's signups/logins would trip the limit across tests.
+        from app.core import ratelimit
+
+        ratelimit.reset_all()
 
 
 @pytest.fixture

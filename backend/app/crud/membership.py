@@ -1,7 +1,7 @@
 """Data-access for board memberships (invite / list / remove)."""
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.membership import Membership
 
@@ -23,11 +23,13 @@ def add_member(db: Session, *, board_id: int, user_id: int, role: str = "member"
 
 
 def list_members(db: Session, board_id: int) -> list[Membership]:
-    """All memberships of a board, oldest first. `.user` is lazy-loaded per row."""
+    """All memberships of a board, oldest first, with `.user` eager-loaded
+    (one batched SELECT-IN instead of a lazy query per member)."""
     stmt = (
         select(Membership)
         .where(Membership.board_id == board_id)
         .order_by(Membership.created_at)
+        .options(selectinload(Membership.user))
     )
     return list(db.execute(stmt).scalars().all())
 

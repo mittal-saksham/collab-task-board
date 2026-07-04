@@ -25,7 +25,7 @@ sequenceDiagram
     participant M as ConnectionManager (event loop)
     participant DB as Postgres
 
-    B->>M: WS connect /ws/boards/5?token=JWT
+    B->>M: WS connect /ws/boards/5?ticket=<single-use>
     M->>M: validate token + board access, add to room[5]
     A->>API: PATCH /cards/9/move {list_id, after_id}
     API->>DB: UPDATE card (new list/position)
@@ -39,7 +39,9 @@ sequenceDiagram
 
 ## Part 1 — Connecting & authenticating
 
-A client subscribes by opening `WS /ws/boards/{board_id}?token=<jwt>`.
+A client subscribes by opening `WS /ws/boards/{board_id}?ticket=<ticket>`,
+where the ticket is a single-use, ~60s credential from `POST /auth/ws-ticket`
+(the JWT itself never goes in a URL — URLs land in access logs; docs/13 §3).
 
 **Why the token is in the query string:** a browser's WebSocket API **can't set
 an `Authorization` header** on the handshake (unlike `fetch`). So the JWT rides

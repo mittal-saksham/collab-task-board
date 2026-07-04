@@ -8,7 +8,7 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as api from './lib/boards'
-import { WS_BASE, getToken } from './lib/api'
+import { WS_BASE, getToken, getWsTicket } from './lib/api'
 import type { BoardDetail } from './types'
 
 // --- Boards list ---
@@ -70,24 +70,40 @@ export function useBoardLiveUpdates(boardId: number) {
       qc.invalidateQueries({ queryKey: ['comments'] })
     }
 
-    const connect = () => {
-      const token = getToken()
-      if (!token) return // logged out — nothing to subscribe to
+    const scheduleRetry = () => {
+      if (unmounted) return
+      // 1s, 2s, 4s, ... capped at 30s between attempts.
+      const delay = Math.min(30_000, 1000 * 2 ** attempt++)
+      retryTimer = window.setTimeout(connect, delay)
+    }
 
-      ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?token=${token}`)
+    const connect = async () => {
+      if (!getToken()) return // logged out — nothing to subscribe to
+
+      // Trade the JWT for a single-use ~60s ticket (the JWT itself must never
+      // ride in the WS URL — URLs land in server logs). A fresh ticket is
+      // fetched on every attempt: they're consumed on use, so reconnects
+      // can't reuse the old one.
+      let ticket: string
+      try {
+        ticket = await getWsTicket()
+      } catch {
+        // Backend unreachable (or 401, which clears the token and stops the
+        // next attempt via the guard above). Retry with backoff.
+        scheduleRetry()
+        return
+      }
+      if (unmounted) return
+
+      ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?ticket=${ticket}`)
       ws.onopen = () => {
         attempt = 0 // healthy again: reset the backoff
         refetchAll() // catch up on anything missed while disconnected
       }
       ws.onmessage = refetchAll
-      ws.onclose = () => {
-        if (unmounted) return
-        // 1s, 2s, 4s, ... capped at 30s between attempts.
-        const delay = Math.min(30_000, 1000 * 2 ** attempt++)
-        retryTimer = window.setTimeout(connect, delay)
-      }
+      ws.onclose = scheduleRetry
     }
-    connect()
+    void connect()
 
     // Leaving the board / unmounting: stop reconnecting and close the socket.
     return () => {

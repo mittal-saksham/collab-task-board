@@ -289,7 +289,7 @@ Rebalance = `O(k)` for one list of `k` items, and only when precision is exhaust
 
 ## 10. Testing & CI ✅
 
-**Backend `pytest`** (`backend/tests/`) — 40 tests:
+**Backend `pytest`** (`backend/tests/`) — 50 tests:
 - `test_ordering.py` — the fractional-ordering helpers (append, front, back,
   midpoint, repeated-insert ordering invariant, gap-exhaustion detection and
   rebalance positions). Pure math, no DB.
@@ -298,6 +298,10 @@ Rebalance = `O(k)` for one list of `k` items, and only when precision is exhaust
 - `test_access.py` — board access control: members view (404 to non-members so we
   don't reveal existence), owner-only edit/delete (403 to non-owner members),
   owner-only invites, and "list boards returns only yours".
+- `test_security.py` — rate limiting (429 + Retry-After at the documented
+  thresholds), the generic-401 login contract, WS ticket auth (valid connect,
+  single-use enforcement, garbage/non-member rejection), and a query-count
+  bound on board detail (the N+1 regression guard).
 - `test_cards.py` — the move path end-to-end: 60 same-gap moves stay ordered and
   distinct (proves the rebalance fallback), move to front/back, cross-list moves,
   PATCH null semantics (422 on NOT NULL fields, clear-with-null still works on
@@ -321,7 +325,7 @@ with FastAPI's `TestClient`. Heavy imports live inside fixtures so the pure
 **CI** (`.github/workflows/ci.yml`): on every push/PR — a backend job (Postgres
 service + env vars; runs `alembic upgrade head` — so migration/model drift fails
 CI instead of the deploy — then pytest) and a frontend job (`npm run lint`,
-`npm run build` type-check, `npm test`). 60 tests total.
+`npm run build` type-check, `npm test`). 70 tests total.
 
 Run locally: `pip install -r backend/requirements-dev.txt && (cd backend && pytest)`
 and `(cd frontend && npm test)`.

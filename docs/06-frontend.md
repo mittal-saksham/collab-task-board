@@ -133,7 +133,7 @@ Verified in a browser: dragging a card `To Do → Doing` moved it and **persiste
 
 ## Live updates (5d)
 
-- **`useBoardLiveUpdates(boardId)`** opens `WS /ws/boards/{id}?token=…` (token as a
+- **`useBoardLiveUpdates(boardId)`** opens `WS /ws/boards/{id}?ticket=…` (a single-use ~60s ticket from `POST /auth/ws-ticket` — see docs/13 §3; formerly the raw JWT as a
   query param, since the browser can't set an Auth header on a WS handshake). On
   **any** event it invalidates `['board', id]` so the board refetches. The socket
   closes on unmount.

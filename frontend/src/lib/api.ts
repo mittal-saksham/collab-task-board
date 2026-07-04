@@ -100,3 +100,12 @@ export async function signup(email: string, password: string): Promise<User> {
 export async function getMe(): Promise<User> {
   return apiFetch<User>('/auth/me')
 }
+
+// A single-use, ~60s ticket for opening a board WebSocket. The WS handshake
+// can't carry the Authorization header, and putting the real JWT in the URL
+// would leak it into server logs — so we trade the JWT for a throwaway ticket
+// right before each connect (including reconnects).
+export async function getWsTicket(): Promise<string> {
+  const data = await apiFetch<{ ticket: string }>('/auth/ws-ticket', { method: 'POST' })
+  return data.ticket
+}

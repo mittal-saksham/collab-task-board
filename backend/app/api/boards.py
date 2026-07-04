@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api import access
 from app.api.deps import CurrentUser
+from app.core.ratelimit import summarize_limiter
 from app.crud import board as board_crud
 from app.db.session import get_db
 from app.schemas.board import (
@@ -46,8 +47,18 @@ def list_boards(current_user: CurrentUser, db: DbSession):
 
 @router.get("/{board_id}", response_model=BoardDetail)
 def get_board(board_id: int, current_user: CurrentUser, db: DbSession):
-    """Return a board with all its lists and cards (the full render payload)."""
-    return access.require_board_member(db, board_id, current_user.id)
+    """Return a board with all its lists and cards (the full render payload).
+
+    Calls the crud directly (not access.require_board_member) because this is
+    the one route that wants the contents eager-loaded — the access helper does
+    a contents-free lookup, which is right everywhere else.
+    """
+    board = board_crud.get_board_for_member(
+        db, board_id, current_user.id, with_contents=True
+    )
+    if board is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Board not found")
+    return board
 
 
 @router.patch("/{board_id}", response_model=BoardRead)
@@ -69,11 +80,16 @@ def delete_board(board_id: int, current_user: CurrentUser, db: DbSession):
     emit(board_id, "board.deleted", {"id": board_id})
 
 
-@router.post("/{board_id}/summarize", response_model=BoardSummary)
+@router.post(
+    "/{board_id}/summarize",
+    response_model=BoardSummary,
+    dependencies=[Depends(summarize_limiter)],
+)
 def summarize_board(board_id: int, current_user: CurrentUser, db: DbSession):
     """Optional AI feature: a short LLM-written summary of the board.
 
-    Any board member can use it. Returns 503 if the summarizer isn't configured
+    Any board member can use it — rate-limited, since each call costs real
+    Anthropic API money. Returns 503 if the summarizer isn't configured
     (no ANTHROPIC_API_KEY), 502 if the LLM request fails.
     """
     board = access.require_board_member(db, board_id, current_user.id)
