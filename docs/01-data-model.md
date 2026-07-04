@@ -157,7 +157,8 @@ class Board(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     owner: Mapped["User"] = relationship(back_populates="owned_boards")
-    lists: Mapped[list["List"]] = relationship(back_populates="board", order_by="List.position")
+    # (position, id): id breaks position ties deterministically — see docs/12 §1
+    lists: Mapped[list["List"]] = relationship(back_populates="board", order_by="[List.position, List.id]")
 ```
 
 Key pieces:

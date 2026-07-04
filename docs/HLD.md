@@ -45,7 +45,9 @@ flowchart LR
 ```
 
 - The **SPA** is the only client. It holds a JWT (in `localStorage`) and attaches
-  it to every REST call and to the WebSocket handshake.
+  it to every REST call; for the WebSocket handshake it first trades the JWT for
+  a single-use ~60s ticket (`POST /auth/ws-ticket`) so the JWT never appears in
+  a URL (`docs/13 §3`).
 - The **backend** exposes two surfaces: a **REST API** (request/response) and a
   **WebSocket hub** (push). A mutation through REST also **broadcasts** to the
   hub so other viewers update live.
@@ -203,6 +205,9 @@ because the MVP implements them:
 | Token storage (FE) | localStorage | httpOnly cookie (needs CSRF handling) |
 | Board permissions | Flat owner + members | Full role matrix (extra auth logic) |
 | Invites | Existing user by email | Shareable link/token (more infra) |
+| Rate limiting | Hand-rolled sliding window, per-IP, in-memory | `slowapi`/Redis (a dependency + infra 3 endpoints don't justify) |
+| WS auth | Single-use ~60s ticket in the URL | Raw JWT in the URL (leaks into access logs); first-message auth (accepts the socket before auth) |
+| Board-detail loading | `selectinload`, opt-in via `with_contents` | Eager-load always (every authz check would pay for a full board); lazy (N+1, ~200 queries/board) |
 
 ---
 
@@ -220,4 +225,7 @@ because the MVP implements them:
 ✅ Jira-style G2: comments + per-board activity log; card modal restyled to content+sidebar (`docs/09`)
 ✅ Jira-style G3: issue types + story points + display-only WIP limits (`docs/10`)
 ✅ Jira-style G4: client-side search/filter bar — text/assignee/label/priority/type (`docs/11`)
-⏳ Stretch (not built): optimistic UI, live deployment
+✅ Optimistic UI: card delete + card move (cache write, rollback, re-sync — `docs/12 §4`)
+✅ Hardening pass from a full-repo review: position rebalance, expired-token handling, WS auto-reconnect (`docs/12`)
+✅ Security & perf: rate limiting, login timing equalization, single-use WS tickets, N+1 eager loading (`docs/13`)
+⏳ Stretch (not built): live deployment (scaffolding done — `DEPLOY.md`), optimistic create/edit

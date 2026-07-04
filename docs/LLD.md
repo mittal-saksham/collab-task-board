@@ -15,21 +15,26 @@ backend/app/
 ├── main.py            ✅ FastAPI app; mounts routers; /health
 ├── core/
 │   ├── config.py      ✅ Settings (env vars) + database_url
-│   └── security.py    ✅ bcrypt hash/verify, JWT encode/decode
+│   ├── security.py    ✅ bcrypt hash/verify, JWT encode/decode, dummy_verify
+│   └── ratelimit.py   ✅ per-IP sliding-window limiter (429 + Retry-After)
 ├── db/
 │   ├── base.py        ✅ Base (DeclarativeBase)
 │   └── session.py     ✅ engine, SessionLocal, get_db dependency
 ├── models/            ✅ SQLAlchemy ORM models (one file per entity)
 │   ├── user.py  board.py  membership.py  list.py  card.py
+│   ├── label.py  comment.py  activity.py  associations.py
 │   └── __init__.py    ✅ imports all models (registry + Alembic)
 ├── schemas/           ✅ Pydantic request/response models
 │   ├── user.py  token.py  board.py  list.py  card.py  member.py
+│   └── label.py  comment.py  activity.py
 ├── crud/              ✅ data-access functions
 │   ├── user.py  board.py  list.py  card.py  membership.py  ordering.py
+│   └── label.py  comment.py  activity.py
+├── services/          ✅ llm.py (summarizer) · activity_log.py (record + broadcast)
 ├── api/               ✅ routers + shared deps
 │   ├── deps.py  access.py  ws.py
-│   └── auth.py  boards.py  lists.py  cards.py  members.py
-└── ws/                ✅ ConnectionManager + emit() (manager.py)
+│   └── auth.py  boards.py  lists.py  cards.py  members.py  labels.py  comments.py  activities.py
+└── ws/                ✅ manager.py (rooms + emit) · tickets.py (single-use WS tickets)
 ```
 
 **Dependency direction (never upward):**
@@ -144,8 +149,9 @@ Schema is created/changed only via Alembic migrations (`backend/alembic/`).
 | `POST /boards/{id}/members` | Invite by email | owner only |
 | `POST /boards/{id}/lists` · `PATCH /lists/{id}` · `DELETE /lists/{id}` | Manage columns | |
 | `POST /lists/{id}/cards` · `PATCH /cards/{id}` · `DELETE /cards/{id}` | Manage cards | |
-| `PATCH /cards/{id}/move` | Reorder / move between lists | body: `{list_id, position}` |
-| `WS /ws/boards/{id}` | Live updates for a board | token in handshake |
+| `PATCH /cards/{id}/move` | Reorder / move between lists | body: `{list_id, after_id}` (server computes position) |
+| `POST /auth/ws-ticket` | Single-use ~60s WebSocket ticket | Bearer |
+| `WS /ws/boards/{id}` | Live updates for a board | ticket in handshake |
 
 ---
 
@@ -211,7 +217,7 @@ sequenceDiagram
     participant DB as Postgres
     participant W as WS hub
     participant B as User B (watching)
-    A->>R: PATCH /cards/{id}/move {list_id, position}
+    A->>R: PATCH /cards/{id}/move {list_id, after_id}
     R->>DB: UPDATE cards SET list_id, position
     R->>W: broadcast(board_id, {type:"card.moved", ...})
     W-->>B: push event
@@ -271,7 +277,9 @@ Rebalance = `O(k)` for one list of `k` items, and only when precision is exhaust
 - **Input validation** is declarative via Pydantic (`EmailStr`,
   `Field(min_length=...)`) → invalid input auto-returns `422` before handler code.
 - **Business errors** use `HTTPException` with an explicit status:
-  `409` (duplicate), `401` (auth), `403` (forbidden ⏳), `404` (missing ⏳).
+  `409` (duplicate), `401` (auth), `403` (forbidden), `404` (missing),
+  `422` (explicit null on a NOT NULL field), `429` (rate limited, with
+  `Retry-After`).
 - **Output** always goes through a `response_model` schema, so internal fields
   (e.g. `hashed_password`) can never leak.
 

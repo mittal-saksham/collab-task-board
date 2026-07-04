@@ -120,10 +120,15 @@ Query refetch.
 - **@dnd-kit**: each card is a `useSortable` (`SortableCard`), each column a
   `useDroppable` wrapping a `SortableContext`. A `PointerSensor` with a 5px
   activation distance keeps plain clicks (the × button) working.
-- On **`onDragEnd`** we figure out the target list and the card dropped onto,
-  compute **`after_id`** (the card to sit behind, or `null` for the front), update
-  local state **optimistically**, then call `PATCH /cards/{id}/move`. The board
-  query refetches on success and re-syncs.
+- On **`onDragEnd`** we figure out the target list and the card dropped onto
+  (direction-aware within a list: dragging *down* inserts after the card you're
+  over, matching the sortable preview — `docs/12 §4`), compute **`after_id`**
+  (the card to sit behind, or `null` for the front), update local state
+  **optimistically**, then call `PATCH /cards/{id}/move`. The mutation itself is
+  optimistic too: `onMutate` cancels in-flight refetches and writes the move
+  into the query cache, `onError` rolls back, `onSettled` re-syncs — so a failed
+  move can't leave the board desynced, and a concurrent refetch can't snap the
+  card back mid-drag.
 
   > 🧠 The frontend computes *where* (target list + `after_id`); the backend
   > computes the actual float **position** (midpoint). Clean split of concerns.
@@ -133,10 +138,13 @@ Verified in a browser: dragging a card `To Do → Doing` moved it and **persiste
 
 ## Live updates (5d)
 
-- **`useBoardLiveUpdates(boardId)`** opens `WS /ws/boards/{id}?ticket=…` (a single-use ~60s ticket from `POST /auth/ws-ticket` — see docs/13 §3; formerly the raw JWT as a
-  query param, since the browser can't set an Auth header on a WS handshake). On
-  **any** event it invalidates `['board', id]` so the board refetches. The socket
-  closes on unmount.
+- **`useBoardLiveUpdates(boardId)`** opens `WS /ws/boards/{id}?ticket=…`. The
+  browser can't set an Auth header on a WS handshake, so before each connect the
+  hook trades the JWT for a single-use ~60s ticket via `POST /auth/ws-ticket`
+  (the JWT never rides in a URL — `docs/13 §3`). On **any** event it invalidates
+  `['board', id]` so the board refetches. If the socket drops, it reconnects
+  with exponential backoff (fresh ticket each attempt) and refetches on
+  reconnect; it closes cleanly on unmount.
 - Net effect: when *anyone* changes the board, every open viewer updates within a
   moment — no refresh.
 

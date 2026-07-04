@@ -63,7 +63,7 @@ board's watchers, so a member list open in another browser updates live.
 | File | Role |
 |------|------|
 | `app/schemas/member.py` | `MemberInvite` (email), `MemberRead` (user_id, email, role) |
-| `app/crud/membership.py` | get / add / list / remove membership rows |
+| `app/crud/membership.py` | get / add / list / remove membership rows (`list_members` eager-loads `.user` via `selectinload` — one batched query, not one per member; `docs/13 §4`) |
 | `app/api/access.py` | `require_board_owner` (owner-only gate) |
 | `app/api/members.py` | the three member routes |
 

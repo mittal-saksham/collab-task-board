@@ -60,7 +60,10 @@ summary = "".join(b.text for b in response.content if b.type == "text").strip()
   → the route returns **`502`**. Missing key → `SummarizerNotConfigured` → **`503`**.
 
 **Route** (`app/api/boards.py`): `POST /boards/{id}/summarize`, member-gated,
-returns `BoardSummary { summary }`.
+returns `BoardSummary { summary }`. Rate-limited to 5/min per IP
+(`core/ratelimit.py` — each call costs real Anthropic API money), so a busy
+finger also sees **`429`** with a `Retry-After` header. Upstream errors are
+logged server-side and returned as a generic 502 (no raw provider text).
 
 ---
 

@@ -101,6 +101,16 @@ SDE reviewer might probe.
     - [Test isolation when your code commits](#test-isolation-when-your-code-commits)
     - [Fixtures & a factory fixture](#fixtures--a-factory-fixture)
     - [CI service containers](#ci-service-containers)
+17. [Security hardening (docs/13)](#17-security-hardening-docs13)
+    - [Rate limiting (sliding window)](#rate-limiting-sliding-window)
+    - [Timing side-channel](#timing-side-channel)
+    - [WebSocket ticket authentication](#websocket-ticket-authentication)
+    - [The N+1 query problem & selectinload](#the-n1-query-problem--selectinload)
+18. [Hardening fixes (docs/12)](#18-hardening-fixes-docs12)
+    - [Gap exhaustion & the rebalance](#gap-exhaustion--the-rebalance)
+    - [Pydantic validators skip defaults (absent vs null)](#pydantic-validators-skip-defaults-absent-vs-null)
+    - [The optimistic-mutation pattern](#the-optimistic-mutation-pattern)
+    - [Reconnect with exponential backoff](#reconnect-with-exponential-backoff)
 
 > 📄 Deeper dives live in [`01-data-model.md`](01-data-model.md),
 > [`02-auth.md`](02-auth.md), [`03-boards-lists-cards.md`](03-boards-lists-cards.md),
@@ -637,7 +647,10 @@ others, set its position to the **average** of the neighbors. Reordering = one
 `UPDATE`, no renumbering siblings.
 
 **Tradeoff:** floats run out of precision after many inserts into the same gap →
-occasional **rebalance** (renumber that one list to 1.0, 2.0, 3.0…).
+occasional **rebalance** (renumber that one list to GAP, 2·GAP, 3·GAP…). This is
+implemented: `gap_exhausted()` in `crud/ordering.py` detects the exhausted gap,
+the move renumbers that one list first, and the ORM orders by `(position, id)`
+so a tie could never render nondeterministically. See §18 and docs/12 §1.
 
 **Interview angle:** know the spectrum — naive integers (renumber everything,
 O(n)) → gapped integers → fractional float → LexoRank strings (Trello/Jira).
@@ -799,14 +812,19 @@ at startup). This is the canonical "send to a socket from sync code" answer.
 
 ---
 
-### Query-param WebSocket auth
+### Query-param WebSocket auth (now ticket-based)
 
 **Plain English:** Browsers can't set an `Authorization` header on a WS handshake,
-so the client passes the JWT as `?token=...`. We validate it (and board access)
-**before** accepting the socket; invalid → close with code 1008.
+so the credential must ride in the URL. Originally that was the raw JWT
+(`?token=...`) — the tradeoff being that query strings land in server logs. As of
+the security batch (docs/13) the client trades its JWT for a **single-use ~60s
+ticket** (`POST /auth/ws-ticket`) and passes `?ticket=...` instead; we redeem it
+(and check board access) **before** accepting the socket; invalid → close 1008.
+Full write-up: §17 below.
 
-**Interview angle:** name the tradeoff — query tokens can land in logs; mitigations
-are first-message auth or short-lived socket "tickets."
+**Interview angle:** name the tradeoff and its fix — query tokens can land in
+logs; the standard mitigations are first-message auth or short-lived socket
+"tickets" (we shipped the latter).
 
 ---
 
@@ -1267,6 +1285,85 @@ query vs one giant JOIN — IN avoids row explosion for collections); how to
 
 ---
 
-*Last updated: after the security & performance batch (docs/13 — rate limiting,
-timing equalization, WS tickets, eager loading). New concepts are appended here
-as we build.*
+## 18. Hardening fixes (docs/12)
+
+### Gap exhaustion & the rebalance
+
+**Plain English:** Fractional positions fail quietly: after ~50 midpoint inserts
+into the *same* gap, `(prev + next) / 2` returns one of its endpoints (float64 is
+out of bits) and two items get identical positions. The fix has two halves:
+**detect** the exhausted gap *before* placing (`gap_exhausted`: gap ≤ 1e-6), then
+**renumber** just that one list to fresh evenly-spaced positions and place
+normally.
+
+**In our code:** `crud/ordering.py` (`gap_exhausted`, `rebalanced_positions`) +
+the `_rebalance_*` helpers in `crud/card.py` / `crud/list.py`. Belt-and-braces:
+relationships order by `(position, id)` so even a collision (still possible under
+concurrent writes — no row locks) renders in a stable order instead of a random
+one. Proven by a 60-move API test (`test_cards.py`).
+
+**Interview angle:** why detect-before-insert beats repair-after (never serve a
+corrupted order); why the rebalance is O(k) for ONE list, not the table; what a
+full fix for the concurrency race would need (row locks or retry-on-conflict).
+
+---
+
+### Pydantic validators skip defaults (absent vs null)
+
+**Plain English:** In a PATCH API, "field absent" (leave unchanged) and "field
+explicitly null" (clear it) are different requests — but both look like `None`
+inside the model. The trick: Pydantic v2 **does not run validators on default
+values**. So a validator that rejects `None` only fires when the client actually
+*sent* `null`, never when the field was simply omitted.
+
+**In our code:** `CardUpdate` / `ListUpdate` (`schemas/card.py`, `schemas/list.py`)
+reject explicit `null` for NOT NULL columns (`title`, `priority`, `issue_type`)
+with a clean 422 — previously that slipped through to the database and blew up as
+a 500 `IntegrityError`. Nullable fields keep clear-with-null.
+
+**Interview angle:** `exclude_unset` + validators-skip-defaults is the whole
+mechanism; contrast with sentinel values or `Optional[Optional[...]]` hacks.
+
+---
+
+### The optimistic-mutation pattern
+
+**Plain English:** Update the UI immediately, tell the server in the background,
+and be ready to undo. The canonical TanStack Query shape is a triple:
+`onMutate` (cancel in-flight refetches, snapshot the cache, apply the change) →
+`onError` (restore the snapshot) → `onSettled` (refetch — re-sync with the
+server's truth either way).
+
+**In our code:** `deleteCard` and `moveCard` in `useBoardMutations` (`hooks.ts`).
+The `cancelQueries` step is the subtle one: a refetch that started *before* your
+drag would resolve with pre-drag data and visibly snap the card back. Failures
+surface in a banner on the board page instead of failing silently.
+
+**Interview angle:** why cancel matters (races with concurrent invalidations),
+why rollback needs a snapshot not an inverse-operation, and why optimistic
+*create* is harder (temp ids — see CLAUDE.md §7).
+
+---
+
+### Reconnect with exponential backoff
+
+**Plain English:** Any long-lived connection WILL drop (server redeploy, laptop
+sleep, proxy idle timeout). A client that doesn't reconnect has silently downgraded
+itself to a static page. Retry with increasing delays (1s, 2s, 4s… capped) so a
+dead server isn't hammered, reset the delay once healthy, and **refetch on every
+reconnect** because events during the gap are gone forever.
+
+**In our code:** `useBoardLiveUpdates` (`hooks.ts`): `onclose` schedules the next
+attempt, `onopen` resets the backoff and refetches all board queries, and an
+`unmounted` flag stops the loop when leaving the page. Each attempt fetches a
+fresh single-use WS ticket (§17).
+
+**Interview angle:** backoff + jitter (we skip jitter — one browser per user, not
+a thundering herd), why "refetch on reconnect" replaces missed-event replay, and
+where reconnect logic belongs (one layer only — ours lives in the hook, so the
+server or a proxy never needs to cooperate).
+
+---
+
+*Last updated: after the security & performance batch (docs/13) and its docs
+backfill (docs/12 concepts, §18). New concepts are appended here as we build.*

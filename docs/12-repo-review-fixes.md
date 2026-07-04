@@ -71,7 +71,10 @@ titles for ten minutes and lose all of it.
   `.catch(() => setToken(null))` would have logged the user out on every wake.
 - The `QueryClient` no longer retries 4xx responses (they're deterministic —
   retrying an expired-token 401 or a nonexistent-board 404 three times just
-  delays the error state).
+  delays the error state), and queries get `staleTime: 30s`: the WebSocket
+  already invalidates on every change, so the default refetch-on-every-focus
+  added nothing but churn — and those background refetches were one of the
+  triggers for the optimistic-drag clobber race in §4.
 
 ## 4. Drag-and-drop is now failure-proof and preview-accurate (frontend)
 
@@ -119,12 +122,13 @@ Recorded so nobody mistakes silence for ignorance:
   constraint). The id tiebreak makes the result *stable* rather than corrupt, and
   single-user/small-team use never hits it. Proper fix = row locks or a retry
   loop; noted for the roadmap.
-- **Rate limiting / login timing side-channel / signup email enumeration** —
-  real security hygiene items from the review, deferred as a follow-up batch.
-- **JWT in the WS query string** — browsers can't set headers on WebSocket
-  connects; the clean fix is a short-lived one-time ticket endpoint. Deferred.
-- **N+1 queries on board load** — no `selectinload` anywhere; a 100-card board
-  is ~200 queries. Painless to add later; irrelevant at demo scale.
+- **Rate limiting / login timing side-channel** — deferred here, **since shipped
+  in the follow-up batch (`docs/13 §1–2`)**. Signup email enumeration remains an
+  accepted UX trade-off, blunted by the signup rate limit.
+- **JWT in the WS query string** — deferred here, **since shipped as the
+  single-use ticket flow (`docs/13 §3`)**.
+- **N+1 queries on board load** — deferred here, **since shipped as the
+  `selectinload` pass (`docs/13 §4`)**, with a query-count regression test.
 - **WS membership is checked only at connect** — a member removed mid-session
   keeps receiving events until they close the tab (REST re-checks per request).
 
