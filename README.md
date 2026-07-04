@@ -5,7 +5,7 @@ project to demonstrate real engineering: clean data modeling, JWT auth, real-tim
 updates, and a layered API.
 
 **Stack:** FastAPI · SQLAlchemy 2.0 · Alembic · Pydantic v2 · PostgreSQL (Docker)
-· JWT · WebSockets · React + TypeScript (frontend, planned).
+· JWT · WebSockets · React + TypeScript frontend.
 
 ---
 
@@ -26,7 +26,8 @@ updates, and a layered API.
 | Comments + per-board activity log (G2) | ✅ |
 | Issue types + story points + display-only WIP limits (G3) | ✅ |
 | Search / filter bar — text, assignee, label, priority, type (G4) | ✅ |
-| Automated tests (pytest + vitest) + CI (GitHub Actions) | ✅ ordering math, auth + board access-control (DB-backed), filter/time helpers — 27 backend + 20 frontend |
+| Automated tests (pytest + vitest) + CI (GitHub Actions) | ✅ ordering math + rebalance, auth, board **and card** access-control, move/PATCH semantics (DB-backed), filter/time helpers — 40 backend + 20 frontend; CI also runs migrations + lint |
+| Hardening pass — position rebalance, expired-token handling, optimistic move + rollback, WS auto-reconnect (`docs/12`) | ✅ |
 
 ---
 
@@ -36,7 +37,7 @@ updates, and a layered API.
 
 ```bash
 # 1. Start PostgreSQL (from the repo root). Reads .env automatically.
-cp .env.example .env        # first time only (the committed .env already has dev values)
+cp .env.example .env        # first time only (the committed example has dev values)
 docker compose up -d
 
 # 2. Create the virtualenv and install backend deps
@@ -102,7 +103,7 @@ Written to be read cold and understood — start here:
 | [`CLAUDE.md`](CLAUDE.md) | **Start here** — project handoff/context: status, how to run, structure, conventions, and the gotchas catalogue (auto-loaded by Claude Code) |
 | [`docs/HLD.md`](docs/HLD.md) | **High-level design** — architecture, components, tech rationale, flows |
 | [`docs/LLD.md`](docs/LLD.md) | **Low-level design** — modules, schema, API contracts, sequence diagrams, algorithms |
-| [`docs/01`–`11`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer, rich cards (G1), comments + activity (G2), issue types + points + WIP (G3), search/filter (G4) |
+| [`docs/01`–`12`](docs/) | Feature walkthroughs: data model, auth, boards/lists/cards, real-time, membership, frontend, LLM summarizer, rich cards (G1), comments + activity (G2), issue types + points + WIP (G3), search/filter (G4), review hardening fixes (12) |
 | [`docs/CONCEPTS.md`](docs/CONCEPTS.md) | Plain-English glossary of every concept used (grows each batch) |
 
 ---
