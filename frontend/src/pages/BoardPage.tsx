@@ -70,6 +70,22 @@ export function BoardPage() {
       : lists.flatMap((l) => l.cards).find((c) => c.id === openCardId) ?? null
   const summarize = useSummarizeBoard(id)
   const [activeCard, setActiveCard] = useState<Card | null>(null)
+  // Surface the most recent failed write. Before this, a failed move/edit was
+  // completely silent — the optimistic UI made it LOOK saved. Each mutation
+  // resets its error the next time it runs, so the banner clears itself.
+  const failed = [
+    m.moveCard,
+    m.createCard,
+    m.updateCard,
+    m.deleteCard,
+    m.createList,
+    m.updateList,
+    m.deleteList,
+    m.createLabel,
+    m.deleteLabel,
+    m.attachLabel,
+    m.detachLabel,
+  ].find((mu) => mu.isError)
   // Require a 5px drag before activating, so plain clicks (e.g. the × button) work.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -114,22 +130,37 @@ export function BoardPage() {
     let index = targetCards.length // default: end (dropped on the column body)
     if (overCardId !== null) {
       const i = targetCards.findIndex((c) => c.id === overCardId)
-      if (i !== -1) index = i // insert BEFORE the card we dropped on
+      if (i !== -1) {
+        // Direction matters within the same list: dragging DOWN, the sortable
+        // preview shows the card sliding in BELOW the one it's over (the others
+        // shift up), so we insert after it. Dragging up — or entering from
+        // another list — inserts before it. Getting this wrong drops the card
+        // one slot above where the preview showed it.
+        const movingDown =
+          source.list.id === targetList.id &&
+          source.list.cards.findIndex((c) => c.id === activeId) <
+            source.list.cards.findIndex((c) => c.id === overCardId)
+        index = movingDown ? i + 1 : i
+      }
     }
     // The backend wants "place after this card id" (null = front).
     const afterId = index > 0 ? targetCards[index - 1].id : null
 
-    // Optimistic local move so the UI updates immediately...
+    // Local move so the UI updates in the same tick the card is dropped...
     setLists((prev) => {
       const next = prev.map((l) => ({
         ...l,
         cards: l.cards.filter((c) => c.id !== activeId),
       }))
+      const target = next.find((l) => l.id === targetList.id)
+      if (!target) return prev // list vanished mid-drag (deleted by a teammate)
       const moved: Card = { ...source.card, list_id: targetList.id }
-      next.find((l) => l.id === targetList.id)!.cards.splice(index, 0, moved)
+      target.cards.splice(index, 0, moved)
       return next
     })
-    // ...then persist; on success the board query refetches and re-syncs.
+    // ...then persist. The mutation is optimistic too (writes the query cache +
+    // cancels in-flight refetches), so a refetch can't snap the card back, and
+    // a failure rolls back + re-syncs instead of leaving the board desynced.
     m.moveCard.mutate({ id: activeId, listId: targetList.id, afterId })
   }
 
@@ -195,6 +226,14 @@ export function BoardPage() {
           matchCount={matchCount}
           totalCount={allCards.length}
         />
+      )}
+
+      {failed && (
+        <div className="mx-4 mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          That change didn't save
+          {failed.error instanceof Error ? ` — ${failed.error.message}` : ''}. The
+          board has been restored to the server's state.
+        </div>
       )}
 
       <main className="flex-1 overflow-x-auto p-4">

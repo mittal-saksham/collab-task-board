@@ -26,8 +26,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Any 401 from any request (an expired token mid-session) drops the session,
+  // so the user is sent to login instead of silently losing every write.
+  // Registered once; apiFetch has already cleared the token when this fires.
+  useEffect(() => {
+    api.setOnUnauthorized(() => setUser(null))
+    return () => api.setOnUnauthorized(null)
+  }, [])
+
   // On first load: if a token exists, try to fetch the user it belongs to.
-  // A bad/expired token gets cleared so we fall back to the login screen.
+  // Only a 401 means the token is bad (apiFetch clears it); a network error or
+  // 5xx — e.g. the free-tier backend cold-starting — must NOT log the user out,
+  // so we keep the token and let the next reload try again.
   useEffect(() => {
     if (!api.getToken()) {
       setIsLoading(false)
@@ -36,7 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     api
       .getMe()
       .then(setUser)
-      .catch(() => api.setToken(null))
+      .catch(() => {
+        /* token kept unless apiFetch saw a 401 */
+      })
       .finally(() => setIsLoading(false))
   }, [])
 

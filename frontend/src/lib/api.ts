@@ -30,6 +30,15 @@ export class ApiError extends Error {
   }
 }
 
+// AuthContext registers a callback here so that when ANY request comes back 401
+// (an expired/revoked token), the whole app drops the session and returns to the
+// login screen — instead of the old behavior where the user stayed "logged in"
+// while every write silently failed.
+let onUnauthorized: (() => void) | null = null
+export function setOnUnauthorized(handler: (() => void) | null): void {
+  onUnauthorized = handler
+}
+
 async function extractDetail(res: Response, fallback: string): Promise<string> {
   try {
     const data = await res.json()
@@ -51,6 +60,13 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers })
   if (!res.ok) {
+    // A 401 with a token attached means the token is no longer valid — clear it
+    // and tell the auth layer, so the user lands on login rather than in a
+    // zombie session. (401 without a token is just "not logged in yet".)
+    if (res.status === 401 && token) {
+      setToken(null)
+      onUnauthorized?.()
+    }
     throw new ApiError(res.status, await extractDetail(res, res.statusText))
   }
   if (res.status === 204) return undefined as T // No Content
