@@ -45,6 +45,9 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      # Exercise the real deploy path: a broken migration chain (or drift between
+      # the models and the migration head) should fail CI, not the Render boot.
+      - run: alembic upgrade head
       - run: python -m pytest -q
 
   frontend:

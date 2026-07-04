@@ -42,5 +42,5 @@ class List(Base):
     cards: Mapped[list["Card"]] = relationship(
         back_populates="list",
         cascade="all, delete-orphan",
-        order_by="Card.position",
+        order_by="[Card.position, Card.id]",  # id breaks position ties deterministically
     )
