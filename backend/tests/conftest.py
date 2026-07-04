@@ -63,6 +63,7 @@ def client(_engine):
     from fastapi.testclient import TestClient
     from sqlalchemy.orm import sessionmaker
 
+    import app.api.ws as ws_module
     from app.db.session import get_db
     from app.main import app
 
@@ -78,6 +79,14 @@ def client(_engine):
             db.close()
 
     app.dependency_overrides[get_db] = override_get_db
+    # The WS handshake (api/ws.py) deliberately opens its own short-lived
+    # session via SessionLocal instead of the get_db dependency — which means
+    # dependency_overrides does NOT redirect it. Without this patch the WS
+    # authz check queries the app's real database (empty in CI → every connect
+    # rejected; worse, locally it can pass by coincidence against leftover dev
+    # rows). Point it at the test engine and restore afterwards.
+    _real_session_local = ws_module.SessionLocal
+    ws_module.SessionLocal = TestingSessionLocal
     # Not used as a context manager, so the app lifespan doesn't run → the WS
     # manager's loop stays unset and emit() is a harmless no-op during tests.
     test_client = TestClient(app)
@@ -85,6 +94,7 @@ def client(_engine):
         yield test_client
     finally:
         app.dependency_overrides.clear()
+        ws_module.SessionLocal = _real_session_local
         with _engine.begin() as conn:
             conn.execute(
                 sa.text(f"TRUNCATE {_ALL_TABLES} RESTART IDENTITY CASCADE")
