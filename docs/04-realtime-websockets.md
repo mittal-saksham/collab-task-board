@@ -25,7 +25,7 @@ sequenceDiagram
     participant M as ConnectionManager (event loop)
     participant DB as Postgres
 
-    B->>M: WS connect /ws/boards/5?token=JWT
+    B->>M: WS connect /ws/boards/5?ticket=<single-use>
     M->>M: validate token + board access, add to room[5]
     A->>API: PATCH /cards/9/move {list_id, after_id}
     API->>DB: UPDATE card (new list/position)
@@ -39,17 +39,22 @@ sequenceDiagram
 
 ## Part 1 — Connecting & authenticating
 
-A client subscribes by opening `WS /ws/boards/{board_id}?token=<jwt>`.
+A client subscribes by opening `WS /ws/boards/{board_id}?ticket=<ticket>`,
+where the ticket is a single-use, ~60s credential from `POST /auth/ws-ticket`
+(the JWT itself never goes in a URL — URLs land in access logs; docs/13 §3).
 
-**Why the token is in the query string:** a browser's WebSocket API **can't set
-an `Authorization` header** on the handshake (unlike `fetch`). So the JWT rides
-along as a query param. We validate it *before* accepting the socket
-(`app/api/ws.py`):
+**Why a ticket instead of the JWT:** a browser's WebSocket API **can't set an
+`Authorization` header** on the handshake (unlike `fetch`), so the credential
+has to ride in the URL — and URLs land in server/proxy access logs. Originally
+the raw JWT went there (a leaked log line = full API access for up to 60 min);
+now the client first trades its JWT for a **single-use ticket** over normal
+authenticated HTTPS, and only that goes in the URL. We validate it *before*
+accepting the socket (`app/api/ws.py`):
 
 ```python
 @router.websocket("/ws/boards/{board_id}")
-async def board_ws(websocket, board_id, token: str = Query(...)):
-    if _authenticate(token, board_id) is None:
+async def board_ws(websocket, board_id, ticket: str = Query(...)):
+    if not _authorize(ticket, board_id):
         await websocket.close(code=1008)   # reject the handshake
         return
     await manager.connect(board_id, websocket)   # accept + join the room
@@ -60,14 +65,14 @@ async def board_ws(websocket, board_id, token: str = Query(...)):
         manager.disconnect(board_id, websocket)
 ```
 
-`_authenticate` reuses our JWT decode + a board-membership check, so **only
-members of a board can watch it**. The `while True: receive_text()` loop doesn't
-expect client messages — it just keeps the socket alive and notices when the
-client leaves.
-
-> ⚠️ **Tradeoff we accepted:** a query-param token can appear in server/proxy
-> logs. Fine for this MVP; a hardening step would be first-message auth or a
-> short-lived "ticket" token just for the socket.
+`_authorize` redeems the ticket — an atomic, **burn-on-use** `dict.pop` in
+`app/ws/tickets.py`, so a reused or expired ticket is rejected — then runs the
+same board-membership check as the REST routes, so **only members of a board
+can watch it**. A ticket that leaks into a log is worthless: already consumed,
+expired within a minute regardless, and never valid for REST. The
+`while True: receive_text()` loop doesn't expect client messages — it just
+keeps the socket alive and notices when the client leaves. (Design details and
+the full threat model: `docs/13 §3`.)
 
 ---
 
@@ -159,7 +164,8 @@ instance, so this is a documented future step, not a bug.
 | File | Role |
 |------|------|
 | `app/ws/manager.py` | `ConnectionManager` (rooms), `manager`, `emit()` |
-| `app/api/ws.py` | the `/ws/boards/{id}` endpoint + token auth |
+| `app/api/ws.py` | the `/ws/boards/{id}` endpoint + ticket authorization |
+| `app/ws/tickets.py` | single-use ~60s WS tickets (issue/redeem) |
 | `app/main.py` | `lifespan` captures the event loop; mounts the WS router |
 | `app/api/{boards,lists,cards}.py` | call `emit(...)` after each mutation |
 

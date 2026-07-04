@@ -64,19 +64,15 @@ def delete_card(db: Session, card: Card) -> None:
     db.commit()
 
 
-def move_card(
-    db: Session, card: Card, *, target_list_id: int, after_id: int | None
-) -> Card:
-    """Move `card` into `target_list_id`, after `after_id` (None = front).
-
-    Same midpoint logic as lists, but scoped to the TARGET list and also updating
-    `list_id` (which is what makes cross-column drag work).
-    """
+def _neighbour_positions(
+    db: Session, *, target_list_id: int, card_id: int, after_id: int | None
+) -> tuple[float | None, float | None]:
+    """The (prev, next) positions surrounding the drop spot in the target list."""
     if after_id is None:
         prev_position = None
         next_position = db.execute(
             select(func.min(Card.position)).where(
-                Card.list_id == target_list_id, Card.id != card.id
+                Card.list_id == target_list_id, Card.id != card_id
             )
         ).scalar_one()
     else:
@@ -85,10 +81,51 @@ def move_card(
         next_position = db.execute(
             select(func.min(Card.position)).where(
                 Card.list_id == target_list_id,
-                Card.id != card.id,
+                Card.id != card_id,
                 Card.position > after.position,
             )
         ).scalar_one()
+    return prev_position, next_position
+
+
+def _rebalance_list(db: Session, *, list_id: int, exclude_card_id: int) -> None:
+    """Renumber a list's cards to fresh evenly-spaced positions.
+
+    Called when repeated midpoint inserts have exhausted the gap between two
+    neighbours (float precision). Keeps the current order (id breaks ties, same
+    as the read path) and flushes so the neighbour re-read sees the new values.
+    """
+    cards = (
+        db.execute(
+            select(Card)
+            .where(Card.list_id == list_id, Card.id != exclude_card_id)
+            .order_by(Card.position, Card.id)
+        )
+        .scalars()
+        .all()
+    )
+    for c, pos in zip(cards, ordering.rebalanced_positions(len(cards))):
+        c.position = pos
+    db.flush()
+
+
+def move_card(
+    db: Session, card: Card, *, target_list_id: int, after_id: int | None
+) -> Card:
+    """Move `card` into `target_list_id`, after `after_id` (None = front).
+
+    Same midpoint logic as lists, but scoped to the TARGET list and also updating
+    `list_id` (which is what makes cross-column drag work). When the drop spot's
+    gap is exhausted, the target list is renumbered first (the rebalance fallback).
+    """
+    prev_position, next_position = _neighbour_positions(
+        db, target_list_id=target_list_id, card_id=card.id, after_id=after_id
+    )
+    if ordering.gap_exhausted(prev_position, next_position):
+        _rebalance_list(db, list_id=target_list_id, exclude_card_id=card.id)
+        prev_position, next_position = _neighbour_positions(
+            db, target_list_id=target_list_id, card_id=card.id, after_id=after_id
+        )
 
     card.list_id = target_list_id
     card.position = ordering.position_between(prev_position, next_position)

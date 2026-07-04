@@ -1,9 +1,10 @@
 """Fractional ordering helpers (shared by lists and cards).
 
 Each orderable item carries a float `position`. To drop an item between two
-neighbours we use the MIDPOINT of their positions, so a move is a single-row
-UPDATE — we never renumber siblings. See docs/01-data-model.md for the full
-rationale and the rebalance fallback.
+neighbours we use the MIDPOINT of their positions, so a move is normally a
+single-row UPDATE. The rare exception: when the gap between the neighbours is
+exhausted (`gap_exhausted`), the CRUD layer renumbers that one list's siblings
+with `rebalanced_positions` before placing the item. See docs/01-data-model.md.
 
 These functions are PURE (just math on numbers); the CRUD layer is responsible
 for fetching the neighbour positions to pass in.
@@ -12,6 +13,26 @@ for fetching the neighbour positions to pass in.
 # Spacing used when appending to the end of a list. A wide gap leaves lots of
 # room to insert between items before precision becomes a concern.
 POSITION_GAP = 1024.0
+
+# When the gap between two neighbours shrinks below this, midpoints are about to
+# stop producing distinct values (float64 runs out of bits after ~50 halvings of
+# the base gap), so the CRUD layer renumbers the siblings first.
+MIN_GAP = 1e-6
+
+
+def gap_exhausted(prev_position: float | None, next_position: float | None) -> bool:
+    """True when there is no usable room left between two neighbours."""
+    if prev_position is None or next_position is None:
+        return False  # inserting at an edge always has room
+    return (next_position - prev_position) <= MIN_GAP
+
+
+def rebalanced_positions(count: int) -> list[float]:
+    """Fresh, evenly-spaced positions for `count` items (the rebalance step).
+
+    Keeps the items' relative order; the caller assigns these in that order.
+    """
+    return [POSITION_GAP * (i + 1) for i in range(count)]
 
 
 def position_at_end(last_position: float | None) -> float:

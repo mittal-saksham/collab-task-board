@@ -26,16 +26,6 @@ def _payload(card) -> dict:
     return CardRead.model_validate(card).model_dump(mode="json")
 
 
-def _board_id_of(db: Session, card) -> int:
-    """Resolve the board a card belongs to (via its list)."""
-    return list_crud.get_list(db, card.list_id).board_id
-
-
-def _short(text: str, n: int = 80) -> str:
-    """Keep activity summaries tidy (titles can be up to 255 chars)."""
-    return text if len(text) <= n else text[: n - 1] + "…"
-
-
 router = APIRouter(tags=["cards"])
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -59,7 +49,7 @@ def create_card(
         board_id=lst.board_id,
         actor_id=current_user.id,
         verb="created_card",
-        summary=f'created card "{_short(card.title)}"',
+        summary=f'created card "{activity_log.short(card.title)}"',
         card_id=card.id,
     )
     return card
@@ -73,21 +63,21 @@ def update_card(
     fields = payload.model_dump(exclude_unset=True)  # only the keys actually sent
     # If assigning someone (not unassigning), they must be a member of this board.
     if fields.get("assignee_id") is not None:
-        board_id = _board_id_of(db, card)
+        board_id = access.board_id_of_card(db, card)
         if membership_crud.get_membership(db, board_id, fields["assignee_id"]) is None:
             raise HTTPException(
                 status.HTTP_400_BAD_REQUEST,
                 detail="Assignee must be a member of this board",
             )
     card = card_crud.update_card(db, card, fields)
-    board_id = _board_id_of(db, card)
+    board_id = access.board_id_of_card(db, card)
     emit(board_id, "card.updated", _payload(card))
     activity_log.log(
         db,
         board_id=board_id,
         actor_id=current_user.id,
         verb="updated_card",
-        summary=f'updated "{_short(card.title)}"',
+        summary=f'updated "{activity_log.short(card.title)}"',
         card_id=card.id,
     )
     return card
@@ -96,7 +86,7 @@ def update_card(
 @router.delete("/cards/{card_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_card(card_id: int, current_user: CurrentUser, db: DbSession):
     card = access.require_card_access(db, card_id, current_user.id)
-    board_id = _board_id_of(db, card)  # capture before deletion
+    board_id = access.board_id_of_card(db, card)  # capture before deletion
     list_id = card.list_id
     title = card.title  # capture before the row is gone (for the activity line)
     card_crud.delete_card(db, card)
@@ -107,7 +97,7 @@ def delete_card(card_id: int, current_user: CurrentUser, db: DbSession):
         board_id=board_id,
         actor_id=current_user.id,
         verb="deleted_card",
-        summary=f'deleted card "{_short(title)}"',
+        summary=f'deleted card "{activity_log.short(title)}"',
     )
 
 
@@ -148,7 +138,7 @@ def move_card(
         board_id=target_list.board_id,
         actor_id=current_user.id,
         verb="moved_card",
-        summary=f'moved "{_short(card.title)}" to {_short(target_list.title, 40)}',
+        summary=f'moved "{activity_log.short(card.title)}" to {activity_log.short(target_list.title, 40)}',
         card_id=card.id,
     )
     return card

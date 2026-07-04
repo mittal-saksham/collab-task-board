@@ -163,6 +163,26 @@ session to clear.
 
 ---
 
+## Hardening added later (docs/13)
+
+Three things were layered onto this flow by the security batch — the full
+rationale lives in `docs/13`, but they belong in this doc's mental model:
+
+- **Rate limiting:** `/auth/login` and `/auth/signup` are limited to 10/min per
+  IP (`core/ratelimit.py`, a hand-rolled sliding window used as a route
+  dependency). Over the limit → `429` + `Retry-After`. This is both brute-force
+  protection and DoS protection — every attempt costs ~100ms of bcrypt CPU.
+- **Timing equalization:** when the email doesn't exist, login calls
+  `dummy_verify()` (`core/security.py`) to burn the same bcrypt cost as a real
+  check — otherwise the *response time* would reveal which emails have accounts
+  even though the error body is identical.
+- **`POST /auth/ws-ticket`:** a third authenticated route in this router. It
+  mints a single-use ~60s ticket (`ws/tickets.py`) that the WebSocket handshake
+  uses instead of the JWT, so the JWT never appears in a URL (`docs/04`,
+  `docs/13 §3`).
+
+---
+
 ## File map
 
 | File | Role |
@@ -173,6 +193,8 @@ session to clear.
 | `app/schemas/token.py` | `Token` (the login response shape) |
 | `app/crud/user.py` | DB reads/writes for users |
 | `app/api/deps.py` | `get_current_user` / `CurrentUser` gate |
-| `app/api/auth.py` | the `/auth/signup`, `/auth/login`, `/auth/me` routes |
+| `app/api/auth.py` | the `/auth/signup`, `/auth/login`, `/auth/me`, `/auth/ws-ticket` routes |
+| `app/core/ratelimit.py` | per-IP sliding-window limiter (login/signup/summarize) |
+| `app/ws/tickets.py` | single-use ~60s WebSocket tickets (issue/redeem) |
 
 ➡️ Next up: Boards (create/list) — the first endpoints that *use* `CurrentUser`.

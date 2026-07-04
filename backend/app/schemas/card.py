@@ -3,7 +3,7 @@
 from datetime import date, datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.label import LabelRead
 from app.schemas.user import UserBrief
@@ -32,6 +32,17 @@ class CardUpdate(BaseModel):
     issue_type: Optional[IssueType] = None
     # ge=0 → no negative estimates. Present as null clears it (exclude_unset).
     story_points: Optional[int] = Field(default=None, ge=0, le=999)
+
+    # These columns are NOT NULL in the database, so "clear it" makes no sense —
+    # an explicit `"title": null` would otherwise slip through Optional and blow
+    # up as a 500 at commit time. Validators don't run on defaults, so an ABSENT
+    # field (= "leave unchanged") is still fine.
+    @field_validator("title", "priority", "issue_type")
+    @classmethod
+    def reject_explicit_null(cls, v, info):
+        if v is None:
+            raise ValueError(f"{info.field_name} cannot be null")
+        return v
 
 
 class CardMove(BaseModel):

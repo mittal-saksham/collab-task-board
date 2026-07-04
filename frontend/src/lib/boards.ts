@@ -30,11 +30,6 @@ export const createList = (boardId: number, title: string) =>
   })
 export const deleteList = (id: number) =>
   apiFetch<void>(`/lists/${id}`, { method: 'DELETE' })
-export const moveList = (id: number, afterId: number | null) =>
-  apiFetch<List>(`/lists/${id}/move`, {
-    method: 'PATCH',
-    body: JSON.stringify({ after_id: afterId }),
-  })
 
 // --- Cards ---
 export const createCard = (listId: number, title: string) =>

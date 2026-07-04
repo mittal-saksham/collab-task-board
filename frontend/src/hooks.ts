@@ -8,7 +8,7 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import * as api from './lib/boards'
-import { WS_BASE, getToken } from './lib/api'
+import { WS_BASE, getToken, getWsTicket } from './lib/api'
 import type { BoardDetail } from './types'
 
 // --- Boards list ---
@@ -43,26 +43,74 @@ export function useBoard(boardId: number) {
 // Subscribe to a board's WebSocket feed. Any event (card.moved, list.created,
 // member.added, ...) just invalidates this board's query so it refetches — the
 // simplest way to stay live. (A fancier version would patch the cache per event.)
+//
+// The socket RECONNECTS with exponential backoff when it drops (backend
+// redeploy, laptop sleep, proxy idle timeout) — without this, live updates
+// silently died for the rest of the session. On every (re)connect we refetch,
+// since events may have been missed while disconnected.
 export function useBoardLiveUpdates(boardId: number) {
   const qc = useQueryClient()
   useEffect(() => {
-    const token = getToken()
-    if (!token || !boardId) return
+    if (!boardId) return
 
-    const ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?token=${token}`)
-    ws.onmessage = () => {
-      // Refetch everything this board view shows, on any event. Cheapest way to
-      // stay live: let each query decide if its data actually changed.
+    let ws: WebSocket | null = null
+    let unmounted = false
+    let attempt = 0
+    let retryTimer: number | undefined
+
+    // Refetch everything this board view shows. Cheapest way to stay live:
+    // let each query decide if its data actually changed. (Comments are keyed
+    // per-card and the event doesn't say which, so invalidate all of them —
+    // only the open card's thread is actually mounted.)
+    const refetchAll = () => {
       qc.invalidateQueries({ queryKey: ['board', boardId] })
       qc.invalidateQueries({ queryKey: ['members', boardId] })
       qc.invalidateQueries({ queryKey: ['labels', boardId] })
       qc.invalidateQueries({ queryKey: ['activities', boardId] })
-      // Comments are keyed per-card; the event doesn't say which, so invalidate
-      // all comment queries (only the open card's thread is actually mounted).
       qc.invalidateQueries({ queryKey: ['comments'] })
     }
-    // Close the socket when leaving the board / unmounting.
-    return () => ws.close()
+
+    const scheduleRetry = () => {
+      if (unmounted) return
+      // 1s, 2s, 4s, ... capped at 30s between attempts.
+      const delay = Math.min(30_000, 1000 * 2 ** attempt++)
+      retryTimer = window.setTimeout(connect, delay)
+    }
+
+    const connect = async () => {
+      if (!getToken()) return // logged out — nothing to subscribe to
+
+      // Trade the JWT for a single-use ~60s ticket (the JWT itself must never
+      // ride in the WS URL — URLs land in server logs). A fresh ticket is
+      // fetched on every attempt: they're consumed on use, so reconnects
+      // can't reuse the old one.
+      let ticket: string
+      try {
+        ticket = await getWsTicket()
+      } catch {
+        // Backend unreachable (or 401, which clears the token and stops the
+        // next attempt via the guard above). Retry with backoff.
+        scheduleRetry()
+        return
+      }
+      if (unmounted) return
+
+      ws = new WebSocket(`${WS_BASE}/ws/boards/${boardId}?ticket=${ticket}`)
+      ws.onopen = () => {
+        attempt = 0 // healthy again: reset the backoff
+        refetchAll() // catch up on anything missed while disconnected
+      }
+      ws.onmessage = refetchAll
+      ws.onclose = scheduleRetry
+    }
+    void connect()
+
+    // Leaving the board / unmounting: stop reconnecting and close the socket.
+    return () => {
+      unmounted = true
+      window.clearTimeout(retryTimer)
+      ws?.close()
+    }
   }, [boardId, qc])
 }
 
@@ -138,11 +186,6 @@ export function useBoardMutations(boardId: number) {
       mutationFn: (id: number) => api.deleteList(id),
       onSuccess: invalidate,
     }),
-    moveList: useMutation({
-      mutationFn: (v: { id: number; afterId: number | null }) =>
-        api.moveList(v.id, v.afterId),
-      onSuccess: invalidate,
-    }),
     // Edit a list's title / WIP limit.
     updateList: useMutation({
       mutationFn: (v: { id: number; patch: api.ListPatch }) =>
@@ -186,10 +229,47 @@ export function useBoardMutations(boardId: number) {
       },
       onSettled: invalidate,
     }),
+    // OPTIMISTIC move (same shape as deleteCard): write the move into the cache
+    // immediately and cancel in-flight refetches. Cancelling matters here — a
+    // refetch started BEFORE the drag (e.g. triggered by a teammate's WS event)
+    // would resolve with pre-drag data and visibly snap the card back. onError
+    // rolls back; onSettled re-syncs with the server's truth either way, so a
+    // failed move can never leave the board permanently out of sync.
     moveCard: useMutation({
       mutationFn: (v: { id: number; listId: number; afterId: number | null }) =>
         api.moveCard(v.id, v.listId, v.afterId),
-      onSuccess: invalidate,
+      onMutate: async (v) => {
+        await qc.cancelQueries({ queryKey: ['board', boardId] })
+        const previous = qc.getQueryData<BoardDetail>(['board', boardId])
+        qc.setQueryData<BoardDetail>(['board', boardId], (old) => {
+          if (!old) return old
+          const moved = old.lists
+            .flatMap((l) => l.cards)
+            .find((c) => c.id === v.id)
+          if (!moved) return old
+          return {
+            ...old,
+            lists: old.lists.map((l) => {
+              const cards = l.cards.filter((c) => c.id !== v.id)
+              if (l.id !== v.listId) return { ...l, cards }
+              // Insert right after afterId (null = front of the list).
+              const at =
+                v.afterId === null
+                  ? 0
+                  : cards.findIndex((c) => c.id === v.afterId) + 1
+              cards.splice(at, 0, { ...moved, list_id: v.listId })
+              return { ...l, cards }
+            }),
+          }
+        })
+        return { previous }
+      },
+      onError: (_err, _v, context) => {
+        if (context?.previous) {
+          qc.setQueryData(['board', boardId], context.previous)
+        }
+      },
+      onSettled: invalidate,
     }),
     // Edit a card's fields (title/description/priority/due_date/assignee_id).
     updateCard: useMutation({

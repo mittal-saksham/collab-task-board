@@ -30,6 +30,15 @@ export class ApiError extends Error {
   }
 }
 
+// AuthContext registers a callback here so that when ANY request comes back 401
+// (an expired/revoked token), the whole app drops the session and returns to the
+// login screen — instead of the old behavior where the user stayed "logged in"
+// while every write silently failed.
+let onUnauthorized: (() => void) | null = null
+export function setOnUnauthorized(handler: (() => void) | null): void {
+  onUnauthorized = handler
+}
+
 async function extractDetail(res: Response, fallback: string): Promise<string> {
   try {
     const data = await res.json()
@@ -51,6 +60,13 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers })
   if (!res.ok) {
+    // A 401 with a token attached means the token is no longer valid — clear it
+    // and tell the auth layer, so the user lands on login rather than in a
+    // zombie session. (401 without a token is just "not logged in yet".)
+    if (res.status === 401 && token) {
+      setToken(null)
+      onUnauthorized?.()
+    }
     throw new ApiError(res.status, await extractDetail(res, res.statusText))
   }
   if (res.status === 204) return undefined as T // No Content
@@ -83,4 +99,13 @@ export async function signup(email: string, password: string): Promise<User> {
 
 export async function getMe(): Promise<User> {
   return apiFetch<User>('/auth/me')
+}
+
+// A single-use, ~60s ticket for opening a board WebSocket. The WS handshake
+// can't carry the Authorization header, and putting the real JWT in the URL
+// would leak it into server logs — so we trade the JWT for a throwaway ticket
+// right before each connect (including reconnects).
+export async function getWsTicket(): Promise<string> {
+  const data = await apiFetch<{ ticket: string }>('/auth/ws-ticket', { method: 'POST' })
+  return data.ticket
 }

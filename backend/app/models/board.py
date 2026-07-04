@@ -44,5 +44,5 @@ class Board(Base):
     lists: Mapped[list["List"]] = relationship(
         back_populates="board",
         cascade="all, delete-orphan",
-        order_by="List.position",
+        order_by="[List.position, List.id]",  # id breaks position ties deterministically
     )

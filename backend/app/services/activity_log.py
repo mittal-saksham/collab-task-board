@@ -9,12 +9,21 @@ Why a service (not just `crud.activity.record`)? Two reasons:
    roll back just the activity insert and move on.
 """
 
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.crud import activity as activity_crud
 from app.models.activity import Activity
 from app.schemas.activity import ActivityRead
 from app.ws.manager import emit
+
+logger = logging.getLogger(__name__)
+
+
+def short(text: str, n: int = 80) -> str:
+    """Keep activity summaries tidy (titles can be up to 255 chars)."""
+    return text if len(text) <= n else text[: n - 1] + "…"
 
 
 def log(
@@ -42,6 +51,9 @@ def log(
         )
         return activity
     except Exception:
-        # Never let a logging hiccup surface as a failed mutation.
+        # Never let a logging hiccup surface as a failed mutation — but DO leave
+        # an operator signal: a permanent bug here would otherwise silence the
+        # entire activity feed with no trace anywhere.
+        logger.exception("Failed to record activity (board_id=%s, verb=%s)", board_id, verb)
         db.rollback()
         return None

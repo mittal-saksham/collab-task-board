@@ -42,6 +42,21 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     )
 
 
+# A throwaway hash used purely to burn bcrypt time (computed once at import).
+_TIMING_DUMMY_HASH = hash_password("timing-equalizer-not-a-real-password")
+
+
+def dummy_verify(plain_password: str) -> None:
+    """Burn the same bcrypt cost as a real password check, discard the result.
+
+    Called on the unknown-email login path. Without it, "email doesn't exist"
+    returns ~100ms faster than "email exists, wrong password" (bcrypt never
+    runs), and that timing difference lets an attacker enumerate which emails
+    have accounts. Equalizing the work closes the side channel.
+    """
+    verify_password(plain_password, _TIMING_DUMMY_HASH)
+
+
 # --- JWT (JSON Web Token) ----------------------------------------------------
 
 def create_access_token(subject: str | int, expires_minutes: int | None = None) -> str:

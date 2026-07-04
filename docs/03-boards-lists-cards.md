@@ -85,9 +85,15 @@ BoardDetail
  ├─ id, title, owner_id, created_at
  └─ lists: [ ListWithCards
               ├─ id, board_id, title, position, created_at
-              └─ cards: [ CardRead, ... ]   # ordered by position
+              └─ cards: [ CardRead, ... ]   # ordered by (position, id)
             ]
 ```
+
+The whole tree is **eager-loaded** in a handful of batched `SELECT ... IN`
+queries (`selectinload`, opt-in via `with_contents=True` in
+`crud/board.get_board_for_member`) — so this response costs ~6 queries
+regardless of how many cards the board has, guarded by a query-count test
+(`docs/13 §4`).
 
 The ordering is automatic: the ORM relationships declare
 `order_by="List.position"` and `order_by="Card.position"`, so the lists and cards

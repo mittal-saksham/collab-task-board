@@ -49,6 +49,13 @@ def require_list_access(db: Session, list_id: int, user_id: int) -> List:
     return lst
 
 
+def board_id_of_card(db: Session, card: Card) -> int:
+    """Resolve the board a card belongs to (via its list) — for WS emits and
+    activity entries, which are board-scoped. Shared here because three routers
+    (cards, labels, comments) all need it."""
+    return list_crud.get_list(db, card.list_id).board_id
+
+
 def require_card_access(db: Session, card_id: int, user_id: int) -> Card:
     card = card_crud.get_card(db, card_id)
     if card is None:

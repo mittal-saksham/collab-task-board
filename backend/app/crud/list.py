@@ -49,18 +49,16 @@ def delete_list(db: Session, lst: List) -> None:
     db.commit()
 
 
-def move_list(db: Session, lst: List, *, after_id: int | None) -> List:
-    """Reorder `lst` within its board, placing it after `after_id` (None = front).
-
-    We compute the positions of the neighbours at the drop spot, then set this
-    list's position to the midpoint — a single-row update.
-    """
+def _neighbour_positions(
+    db: Session, *, board_id: int, list_id: int, after_id: int | None
+) -> tuple[float | None, float | None]:
+    """The (prev, next) positions surrounding the drop spot within the board."""
     if after_id is None:
         # Front of the board: no previous neighbour; next = current first list.
         prev_position = None
         next_position = db.execute(
             select(func.min(List.position)).where(
-                List.board_id == lst.board_id, List.id != lst.id
+                List.board_id == board_id, List.id != list_id
             )
         ).scalar_one()
     else:
@@ -70,11 +68,45 @@ def move_list(db: Session, lst: List, *, after_id: int | None) -> List:
         # than after's), excluding the list being moved.
         next_position = db.execute(
             select(func.min(List.position)).where(
-                List.board_id == lst.board_id,
-                List.id != lst.id,
+                List.board_id == board_id,
+                List.id != list_id,
                 List.position > after.position,
             )
         ).scalar_one()
+    return prev_position, next_position
+
+
+def _rebalance_board_lists(db: Session, *, board_id: int, exclude_list_id: int) -> None:
+    """Renumber a board's lists when midpoint inserts have exhausted a gap."""
+    siblings = (
+        db.execute(
+            select(List)
+            .where(List.board_id == board_id, List.id != exclude_list_id)
+            .order_by(List.position, List.id)
+        )
+        .scalars()
+        .all()
+    )
+    for sib, pos in zip(siblings, ordering.rebalanced_positions(len(siblings))):
+        sib.position = pos
+    db.flush()
+
+
+def move_list(db: Session, lst: List, *, after_id: int | None) -> List:
+    """Reorder `lst` within its board, placing it after `after_id` (None = front).
+
+    We compute the positions of the neighbours at the drop spot, then set this
+    list's position to the midpoint — a single-row update, except in the rare
+    case where the gap is exhausted and the board's lists get renumbered first.
+    """
+    prev_position, next_position = _neighbour_positions(
+        db, board_id=lst.board_id, list_id=lst.id, after_id=after_id
+    )
+    if ordering.gap_exhausted(prev_position, next_position):
+        _rebalance_board_lists(db, board_id=lst.board_id, exclude_list_id=lst.id)
+        prev_position, next_position = _neighbour_positions(
+            db, board_id=lst.board_id, list_id=lst.id, after_id=after_id
+        )
 
     lst.position = ordering.position_between(prev_position, next_position)
     db.commit()

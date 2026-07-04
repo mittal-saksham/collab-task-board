@@ -15,21 +15,26 @@ backend/app/
 ├── main.py            ✅ FastAPI app; mounts routers; /health
 ├── core/
 │   ├── config.py      ✅ Settings (env vars) + database_url
-│   └── security.py    ✅ bcrypt hash/verify, JWT encode/decode
+│   ├── security.py    ✅ bcrypt hash/verify, JWT encode/decode, dummy_verify
+│   └── ratelimit.py   ✅ per-IP sliding-window limiter (429 + Retry-After)
 ├── db/
 │   ├── base.py        ✅ Base (DeclarativeBase)
 │   └── session.py     ✅ engine, SessionLocal, get_db dependency
 ├── models/            ✅ SQLAlchemy ORM models (one file per entity)
 │   ├── user.py  board.py  membership.py  list.py  card.py
+│   ├── label.py  comment.py  activity.py  associations.py
 │   └── __init__.py    ✅ imports all models (registry + Alembic)
 ├── schemas/           ✅ Pydantic request/response models
 │   ├── user.py  token.py  board.py  list.py  card.py  member.py
+│   └── label.py  comment.py  activity.py
 ├── crud/              ✅ data-access functions
 │   ├── user.py  board.py  list.py  card.py  membership.py  ordering.py
+│   └── label.py  comment.py  activity.py
+├── services/          ✅ llm.py (summarizer) · activity_log.py (record + broadcast)
 ├── api/               ✅ routers + shared deps
 │   ├── deps.py  access.py  ws.py
-│   └── auth.py  boards.py  lists.py  cards.py  members.py
-└── ws/                ✅ ConnectionManager + emit() (manager.py)
+│   └── auth.py  boards.py  lists.py  cards.py  members.py  labels.py  comments.py  activities.py
+└── ws/                ✅ manager.py (rooms + emit) · tickets.py (single-use WS tickets)
 ```
 
 **Dependency direction (never upward):**
@@ -144,8 +149,9 @@ Schema is created/changed only via Alembic migrations (`backend/alembic/`).
 | `POST /boards/{id}/members` | Invite by email | owner only |
 | `POST /boards/{id}/lists` · `PATCH /lists/{id}` · `DELETE /lists/{id}` | Manage columns | |
 | `POST /lists/{id}/cards` · `PATCH /cards/{id}` · `DELETE /cards/{id}` | Manage cards | |
-| `PATCH /cards/{id}/move` | Reorder / move between lists | body: `{list_id, position}` |
-| `WS /ws/boards/{id}` | Live updates for a board | token in handshake |
+| `PATCH /cards/{id}/move` | Reorder / move between lists | body: `{list_id, after_id}` (server computes position) |
+| `POST /auth/ws-ticket` | Single-use ~60s WebSocket ticket | Bearer |
+| `WS /ws/boards/{id}` | Live updates for a board | ticket in handshake |
 
 ---
 
@@ -211,7 +217,7 @@ sequenceDiagram
     participant DB as Postgres
     participant W as WS hub
     participant B as User B (watching)
-    A->>R: PATCH /cards/{id}/move {list_id, position}
+    A->>R: PATCH /cards/{id}/move {list_id, after_id}
     R->>DB: UPDATE cards SET list_id, position
     R->>W: broadcast(board_id, {type:"card.moved", ...})
     W-->>B: push event
@@ -271,7 +277,9 @@ Rebalance = `O(k)` for one list of `k` items, and only when precision is exhaust
 - **Input validation** is declarative via Pydantic (`EmailStr`,
   `Field(min_length=...)`) → invalid input auto-returns `422` before handler code.
 - **Business errors** use `HTTPException` with an explicit status:
-  `409` (duplicate), `401` (auth), `403` (forbidden ⏳), `404` (missing ⏳).
+  `409` (duplicate), `401` (auth), `403` (forbidden), `404` (missing),
+  `422` (explicit null on a NOT NULL field), `429` (rate limited, with
+  `Retry-After`).
 - **Output** always goes through a `response_model` schema, so internal fields
   (e.g. `hashed_password`) can never leak.
 
@@ -289,14 +297,24 @@ Rebalance = `O(k)` for one list of `k` items, and only when precision is exhaust
 
 ## 10. Testing & CI ✅
 
-**Backend `pytest`** (`backend/tests/`) — 27 tests:
+**Backend `pytest`** (`backend/tests/`) — 50 tests:
 - `test_ordering.py` — the fractional-ordering helpers (append, front, back,
-  midpoint, repeated-insert ordering invariant). Pure math, no DB.
+  midpoint, repeated-insert ordering invariant, gap-exhaustion detection and
+  rebalance positions). Pure math, no DB.
 - `test_auth.py` — signup (incl. 409 duplicate, 422 validation), login (200 +
   token, 401 wrong/unknown), `/me` (401 without/garbage token, 200 with).
 - `test_access.py` — board access control: members view (404 to non-members so we
   don't reveal existence), owner-only edit/delete (403 to non-owner members),
   owner-only invites, and "list boards returns only yours".
+- `test_security.py` — rate limiting (429 + Retry-After at the documented
+  thresholds), the generic-401 login contract, WS ticket auth (valid connect,
+  single-use enforcement, garbage/non-member rejection), and a query-count
+  bound on board detail (the N+1 regression guard).
+- `test_cards.py` — the move path end-to-end: 60 same-gap moves stay ordered and
+  distinct (proves the rebalance fallback), move to front/back, cross-list moves,
+  PATCH null semantics (422 on NOT NULL fields, clear-with-null still works on
+  nullable ones), card-level access control (404 to non-members on every card
+  route), and the cross-board move rejection (400).
 
 **The isolation trick** (`conftest.py`): because the CRUD layer calls `db.commit()`,
 a wrap-and-rollback transaction can't isolate tests. Instead we create the schema
@@ -313,8 +331,9 @@ with FastAPI's `TestClient`. Heavy imports live inside fixtures so the pure
 `initials`).
 
 **CI** (`.github/workflows/ci.yml`): on every push/PR — a backend job (Postgres
-service + env vars; runs pytest) and a frontend job (`npm run build` type-check +
-`npm test`). 47 tests total.
+service + env vars; runs `alembic upgrade head` — so migration/model drift fails
+CI instead of the deploy — then pytest) and a frontend job (`npm run lint`,
+`npm run build` type-check, `npm test`). 70 tests total.
 
 Run locally: `pip install -r backend/requirements-dev.txt && (cd backend && pytest)`
 and `(cd frontend && npm test)`.

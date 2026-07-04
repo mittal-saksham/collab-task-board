@@ -6,18 +6,20 @@ Routes don't usually call `record` directly — they go through
 """
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.activity import Activity
 
 
 def list_activities(db: Session, board_id: int, limit: int = 50) -> list[Activity]:
-    """The board's most recent activity, newest first."""
+    """The board's most recent activity, newest first, with `.actor`
+    eager-loaded (one batched SELECT-IN instead of a lazy query per row)."""
     stmt = (
         select(Activity)
         .where(Activity.board_id == board_id)
         .order_by(Activity.created_at.desc(), Activity.id.desc())
         .limit(limit)
+        .options(selectinload(Activity.actor))
     )
     return list(db.execute(stmt).scalars().all())
 

@@ -3,10 +3,7 @@ import type { Card } from '../types'
 import type { CardPatch } from '../lib/boards'
 import { useBoardMutations, useLabels, useMembers } from '../hooks'
 import { CommentThread } from './CommentThread'
-import { ISSUE_TYPES, LABEL_STYLES } from './CardBadges'
-
-// The five priority levels the backend accepts (schemas/card.py Priority).
-const PRIORITIES = ['highest', 'high', 'medium', 'low', 'lowest']
+import { ISSUE_TYPES, LABEL_STYLES, PRIORITIES } from './CardBadges'
 // A new label may only use a color we have a style for (see CardBadges).
 const LABEL_COLORS = Object.keys(LABEL_STYLES)
 

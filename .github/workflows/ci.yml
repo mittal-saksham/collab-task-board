@@ -45,6 +45,9 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements-dev.txt
       - run: pip install -r requirements-dev.txt
+      # Exercise the real deploy path: a broken migration chain (or drift between
+      # the models and the migration head) should fail CI, not the Render boot.
+      - run: alembic upgrade head
       - run: python -m pytest -q
 
   frontend:
@@ -61,5 +64,6 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm run lint    # oxlint (was defined in package.json but never run in CI)
       - run: npm run build   # tsc type-check + vite build
       - run: npm test        # vitest run

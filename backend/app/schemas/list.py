@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.schemas.card import CardRead
 
@@ -19,6 +19,16 @@ class ListUpdate(BaseModel):
 
     title: Optional[str] = Field(default=None, min_length=1, max_length=255)
     wip_limit: Optional[int] = Field(default=None, ge=1, le=999)
+
+    # `title` is NOT NULL in the database — reject an explicit `"title": null`
+    # (422) instead of letting it 500 at commit time. An absent field still
+    # means "leave unchanged" (validators don't run on defaults).
+    @field_validator("title")
+    @classmethod
+    def reject_explicit_null(cls, v):
+        if v is None:
+            raise ValueError("title cannot be null")
+        return v
 
 
 class ListMove(BaseModel):

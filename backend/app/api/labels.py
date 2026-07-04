@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from app.api import access
 from app.api.deps import CurrentUser
 from app.crud import label as label_crud
-from app.crud import list as list_crud
 from app.db.session import get_db
 from app.schemas.card import CardRead
 from app.schemas.label import LabelCreate, LabelRead
@@ -17,10 +16,6 @@ from app.ws.manager import emit
 router = APIRouter(tags=["labels"])
 
 DbSession = Annotated[Session, Depends(get_db)]
-
-
-def _board_id_of_card(db: Session, card) -> int:
-    return list_crud.get_list(db, card.list_id).board_id
 
 
 # --- Board labels ---
@@ -66,7 +61,7 @@ def attach_label(
 ):
     card = access.require_card_access(db, card_id, current_user.id)
     label = label_crud.get_label(db, label_id)
-    board_id = _board_id_of_card(db, card)
+    board_id = access.board_id_of_card(db, card)
     if label is None or label.board_id != board_id:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, detail="Label must belong to this board"
@@ -85,6 +80,6 @@ def detach_label(
     if label is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Label not found")
     card = label_crud.detach_label(db, card, label)
-    emit(_board_id_of_card(db, card), "card.updated",
+    emit(access.board_id_of_card(db, card), "card.updated",
          CardRead.model_validate(card).model_dump(mode="json"))
     return card

@@ -35,8 +35,20 @@ feature-complete.
   - **G2** comments + per-board activity log; modal restyled to content+sidebar (`docs/09`)
   - **G3** issue types (task/bug/story) + story points + **display-only** WIP limits (`docs/10`)
   - **G4** client-side search/filter bar — text/assignee/label/priority/type (`docs/11`)
-- ✅ **Tests + CI** — 47 tests (pytest: ordering math + auth + board access-control;
-  vitest: filter/time helpers) running on GitHub Actions (`docs/LLD.md §10`).
+- ✅ **Tests + CI** — 70 tests (pytest: security (rate limits, WS tickets, N+1 guard), ordering math + rebalance, auth, board AND
+  card access-control, move/PATCH semantics; vitest: filter/time helpers) on
+  GitHub Actions; CI also runs `alembic upgrade head` and the frontend linter
+  (`docs/LLD.md §10`).
+- ✅ **Security & perf batch** (`docs/13`) — rate limiting (hand-rolled sliding
+  window, per-IP, in-memory), login timing equalization (`dummy_verify`),
+  single-use ~60s WebSocket tickets (`POST /auth/ws-ticket` — JWT never rides
+  in a URL anymore), and `selectinload` eager loading (board detail is ~6
+  queries regardless of card count, guarded by a query-count test).
+- ✅ **Hardening pass from a full-repo review** (`docs/12`) — position rebalance
+  fallback (was documented but never implemented!), PATCH-null 422s, global 401
+  handling (no more zombie sessions), optimistic moveCard with rollback, WS
+  auto-reconnect with backoff, drag off-by-one fix, mutation-error banner, dead
+  code/duplication cleanup.
 - ✅ **Deploy scaffolding** — `render.yaml` + `backend/Dockerfile` + `DEPLOY.md`.
 - ✅ **Optimistic UI** — card delete only (create/edit deliberately deferred).
 
@@ -91,7 +103,8 @@ cd frontend && npm test
 ```
 
 CI: `.github/workflows/ci.yml` runs both on every push/PR (backend job has a
-`postgres:16` service). 47 tests total. Full notes in `docs/LLD.md §10`.
+`postgres:16` service; runs migrations, pytest, lint, build, vitest). 70 tests
+total. Full notes in `docs/LLD.md §10`.
 
 ---
 
@@ -162,6 +175,9 @@ CI: `.github/workflows/ci.yml` runs both on every push/PR (backend job has a
 - **PATCH semantics:** routes use `model_dump(exclude_unset=True)`. A key *absent* =
   "leave unchanged"; a key present as **`null`** = "clear it". The frontend must send
   literal `null` (JSON.stringify drops `undefined`) to unassign / clear a field.
+  NOT NULL fields (card/list `title`, `priority`, `issue_type`) reject explicit
+  null with 422 via schema validators — Pydantic v2 validators don't run on
+  defaults, which is exactly why absent-vs-null can be told apart. (`docs/12 §2`.)
 - **Tailwind v4 drops runtime-built class names** — only complete literal strings
   survive the build. Use a static map (see `CardBadges.tsx` `LABEL_STYLES`), never
   `` `bg-${color}-100` ``.
@@ -177,8 +193,21 @@ CI: `.github/workflows/ci.yml` runs both on every push/PR (backend job has a
   negative ids before adding optimistic create.
 - **SQLAlchemy `str(url)` masks the password as `***`** — build engines from the URL
   *object*, not its string form (bit us in `tests/conftest.py`).
+- **Rate limiters + WS tickets are in-memory too** (`core/ratelimit.py`,
+  `ws/tickets.py`) — same single-process trade-off as the WS manager; all three
+  move to Redis together if this ever scales out. Tests reset limiter state in
+  the conftest teardown (same-IP TestClient requests would trip limits otherwise).
+- **The WS URL carries a single-use ticket, not the JWT** — fetch a fresh one
+  per connect (`getWsTicket`); a reused/expired ticket is rejected at handshake.
 - **WS manager is in-memory / single-process** — fine on one instance; multi-instance
   would need Redis pub/sub. `emit()` is a no-op if the loop isn't set (e.g. in tests).
+  The frontend socket auto-reconnects with backoff and refetches on reconnect
+  (`useBoardLiveUpdates`); don't add a second reconnect layer on top.
+- **Fractional positions rebalance when a gap is exhausted** (`crud/ordering.py`
+  `gap_exhausted` + the `_rebalance_*` helpers in card/list crud), and the ORM
+  orders by `(position, id)` so ties are deterministic. Concurrent same-spot
+  writes can still collide (no row locks) — stable order, not corruption; a
+  locking/retry scheme is a known future item. (`docs/12 §1, §6`.)
 
 ---
 
