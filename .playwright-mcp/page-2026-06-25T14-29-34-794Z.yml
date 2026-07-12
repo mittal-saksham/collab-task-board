@@ -1,8 +1,0 @@
-- generic [ref=e14]:
-  - banner [ref=e15]:
-    - heading "Task Board" [level=1] [ref=e16]
-    - generic [ref=e17]:
-      - generic [ref=e18]: demo_ui@example.com
-      - button "Log out" [ref=e19]
-  - main [ref=e20]:
-    - paragraph [ref=e21]: You're signed in. The board list and the board view come next.
